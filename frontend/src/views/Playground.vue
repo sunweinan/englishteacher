@@ -165,34 +165,12 @@ const ensureAudioContext = () => {
 
 const playTypewriterSound = () => {
   const ctx = ensureAudioContext();
-  const baseTime = ctx.currentTime;
+  const time = ctx.currentTime;
 
-  const createClick = (time: number, freq: number, gainValue: number, filterFreq: number) => {
-    const osc = ctx.createOscillator();
-    osc.type = 'square';
-    osc.frequency.value = freq;
-
-    const filter = ctx.createBiquadFilter();
-    filter.type = 'bandpass';
-    filter.frequency.value = filterFreq;
-    filter.Q.value = 6;
-
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(gainValue, time);
-    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.09);
-
-    osc.connect(filter);
-    filter.connect(gain);
-    gain.connect(ctx.destination);
-
-    osc.start(time);
-    osc.stop(time + 0.12);
-  };
-
-  const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.03, ctx.sampleRate);
+  const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.04, ctx.sampleRate);
   const data = noiseBuffer.getChannelData(0);
   for (let i = 0; i < data.length; i += 1) {
-    data[i] = (Math.random() * 2 - 1) * 0.35;
+    data[i] = (Math.random() * 2 - 1) * 0.4;
   }
 
   const noise = ctx.createBufferSource();
@@ -200,35 +178,51 @@ const playTypewriterSound = () => {
 
   const noiseFilter = ctx.createBiquadFilter();
   noiseFilter.type = 'bandpass';
-  noiseFilter.frequency.value = 1800;
-  noiseFilter.Q.value = 5;
+  noiseFilter.frequency.value = 2200;
+  noiseFilter.Q.value = 3.5;
 
   const noiseGain = ctx.createGain();
-  noiseGain.gain.setValueAtTime(0.12, baseTime);
-  noiseGain.gain.exponentialRampToValueAtTime(0.0001, baseTime + 0.05);
+  noiseGain.gain.setValueAtTime(0.0001, time);
+  noiseGain.gain.exponentialRampToValueAtTime(0.18, time + 0.004);
+  noiseGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.07);
 
   noise.connect(noiseFilter);
   noiseFilter.connect(noiseGain);
   noiseGain.connect(ctx.destination);
 
-  createClick(baseTime, 170 + Math.random() * 20, 0.16, 900);
-  createClick(baseTime + 0.05, 260 + Math.random() * 30, 0.12, 1400);
+  const thumpOsc = ctx.createOscillator();
+  thumpOsc.type = 'triangle';
+  thumpOsc.frequency.value = 110 + Math.random() * 20;
 
-  const thunkOsc = ctx.createOscillator();
-  thunkOsc.type = 'sine';
-  thunkOsc.frequency.value = 120 + Math.random() * 15;
+  const thumpGain = ctx.createGain();
+  thumpGain.gain.setValueAtTime(0.16, time + 0.008);
+  thumpGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.13);
 
-  const thunkGain = ctx.createGain();
-  thunkGain.gain.setValueAtTime(0.1, baseTime + 0.02);
-  thunkGain.gain.exponentialRampToValueAtTime(0.0001, baseTime + 0.15);
+  thumpOsc.connect(thumpGain);
+  thumpGain.connect(ctx.destination);
 
-  thunkOsc.connect(thunkGain);
-  thunkGain.connect(ctx.destination);
+  const clickOsc = ctx.createOscillator();
+  clickOsc.type = 'square';
+  clickOsc.frequency.value = 850 + Math.random() * 80;
 
-  noise.start(baseTime + 0.01);
-  noise.stop(baseTime + 0.08);
-  thunkOsc.start(baseTime + 0.02);
-  thunkOsc.stop(baseTime + 0.17);
+  const clickFilter = ctx.createBiquadFilter();
+  clickFilter.type = 'highpass';
+  clickFilter.frequency.value = 1200;
+
+  const clickGain = ctx.createGain();
+  clickGain.gain.setValueAtTime(0.12, time);
+  clickGain.gain.exponentialRampToValueAtTime(0.0001, time + 0.05);
+
+  clickOsc.connect(clickFilter);
+  clickFilter.connect(clickGain);
+  clickGain.connect(ctx.destination);
+
+  noise.start(time);
+  noise.stop(time + 0.09);
+  thumpOsc.start(time + 0.01);
+  thumpOsc.stop(time + 0.15);
+  clickOsc.start(time);
+  clickOsc.stop(time + 0.07);
 };
 
 const playTone = (frequency: number, duration = 0.08, volume = 0.08) => {
@@ -444,6 +438,7 @@ onBeforeUnmount(() => {
   padding: 48px 24px 24px;
   border-radius: 24px;
   box-shadow: 0 20px 60px rgba(0, 0, 0, 0.08);
+  min-height: 520px;
   width: min(960px, 90vw);
   text-align: center;
   position: relative;
