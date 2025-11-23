@@ -13,6 +13,7 @@
 import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import axios from '@/utils/http';
+import { API_ENDPOINTS } from '@/config/api';
 
 interface Product {
   id: number;
@@ -25,7 +26,7 @@ const router = useRouter();
 const products = ref<Product[]>([]);
 
 const load = async () => {
-  const { data } = await axios.get('/products');
+  const { data } = await axios.get(API_ENDPOINTS.products);
   products.value = data.items || data;
 };
 

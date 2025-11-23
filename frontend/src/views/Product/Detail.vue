@@ -14,6 +14,7 @@
 import { onMounted, ref } from 'vue';
 import { useRoute, useRouter } from 'vue-router';
 import axios from '@/utils/http';
+import { API_ENDPOINTS } from '@/config/api';
 import { useCartStore } from '@/store/cart';
 
 interface ProductDetail {
@@ -30,7 +31,7 @@ const cartStore = useCartStore();
 const product = ref<ProductDetail | null>(null);
 
 const load = async () => {
-  const { data } = await axios.get(`/products/${route.params.id}`);
+  const { data } = await axios.get(API_ENDPOINTS.productDetail(route.params.id as string));
   product.value = data;
 };
 
