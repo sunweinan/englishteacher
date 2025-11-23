@@ -1,7 +1,7 @@
 <template>
   <div class="home-page">
     <header class="hero">
-      <div class="brand">英语学习馆</div>
+      <div class="brand">enTeacher</div>
       <div class="search">
         <el-input v-model="keyword" placeholder="搜索课程、场景或标签" clearable @input="filterCourses">
           <template #prefix>
@@ -10,7 +10,7 @@
         </el-input>
       </div>
       <div class="auth">
-        <el-button v-if="!userStore.isAuthenticated" type="primary" @click="goLogin">登录</el-button>
+        <el-button v-if="!userStore.isAuthenticated" class="login-btn" @click="goLogin">登录</el-button>
         <el-dropdown v-else>
           <span class="user-chip">
             <el-tag type="success" size="small" effect="dark">{{ userStore.isMember ? '会员' : '游客' }}</el-tag>
@@ -147,7 +147,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .home-page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #f7f8fb 0%, #ffffff 45%, #f5f7fb 100%);
+  background: linear-gradient(180deg, #ffffff 0%, #f7f9fb 45%, #ffffff 100%);
   color: #1c1f2b;
 }
 
@@ -178,6 +178,16 @@ onBeforeUnmount(() => {
 .auth {
   display: flex;
   justify-content: flex-end;
+}
+
+.login-btn {
+  --el-button-bg-color: #22c55e;
+  --el-button-border-color: #22c55e;
+  --el-button-hover-bg-color: #16a34a;
+  --el-button-hover-border-color: #16a34a;
+  color: #fff;
+  font-weight: 700;
+  box-shadow: 0 10px 24px rgba(34, 197, 94, 0.25);
 }
 
 .user-chip {
