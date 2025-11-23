@@ -56,8 +56,8 @@ export const useUserStore = defineStore('user', {
       localStorage.setItem('role', this.role);
     },
     loginWithCode(phone: string) {
-      if (!/^[0-9]{11}$/.test(phone)) {
-        throw new Error('请输入合法的11位手机号');
+      if (!/^[0-9]{4,20}$/.test(phone)) {
+        throw new Error('请输入合法的手机号');
       }
       this.phone = phone;
       this.setToken(`token-${phone}-${Date.now()}`);

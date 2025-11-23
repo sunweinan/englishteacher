@@ -12,23 +12,30 @@
           v-for="(word, index) in currentWords"
           :key="word + index"
           class="blank"
-          :style="{ minWidth: `${word.length * 14 + 24}px` }"
+          :style="blankStyle(word)"
         >
           <input
             v-model="inputs[index]"
             :class="statusClass(index)"
             :aria-label="`answer-${index}`"
+            :ref="(el) => setInputRef(el, index)"
             @input="onInput(index)"
+            @keydown="handleKeydown($event, index)"
+            @focus="() => (activeIndex = index)"
           />
-          <span class="underline" />
+          <span class="underline" :style="{ width: `${underlineWidth(word)}px` }" />
         </div>
       </div>
       <div class="feedback">{{ feedback }}</div>
 
       <div class="quick">
-        <el-button size="small" @click="speak(currentLesson.zh)">再次发声(中)</el-button>
-        <el-button size="small" type="primary" @click="speak(currentLesson.en)">再次发声(英)</el-button>
-        <el-button size="small" text @click="resetInputs">重置空格</el-button>
+        <el-button size="small" type="primary" plain round @click="() => speak(currentLesson.zh)">
+          重读中文（键盘 1）
+        </el-button>
+        <el-button size="small" type="success" round @click="() => speak(currentLesson.en)">
+          重读英文（键盘 2）
+        </el-button>
+        <el-button size="small" plain round @click="resetInputs">重置空格</el-button>
       </div>
 
       <transition-group name="confetti">
@@ -49,7 +56,7 @@
     <footer class="controls">
       <el-button text @click="prev">上一句</el-button>
       <div class="progress">{{ currentIndex + 1 }} / {{ lessons.length }}</div>
-      <el-button type="primary" :disabled="!allCorrect" @click="next">下一句</el-button>
+      <el-button type="primary" :disabled="!inputs.length" @click="evaluateSentence">评判 / 下一句</el-button>
     </footer>
 
     <el-dialog v-model="showRecharge" width="520px" :show-close="false" class="recharge-dialog">
@@ -80,7 +87,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useRoute } from 'vue-router';
 import { courseCards } from '@/config/courses';
@@ -92,11 +99,14 @@ const courseId = computed(() => Number(route.query.courseId));
 const lessons = computed(() => courseCards.find((c) => c.id === courseId.value)?.lessons || courseCards[0].lessons);
 
 const currentIndex = ref(0);
+const activeIndex = ref(0);
 const inputs = ref<string[]>([]);
 const feedback = ref('');
 const confettiPieces = ref<Array<{ id: number; left: number; color: string; duration: number; delay: number }>>([]);
 const showRecharge = ref(false);
 const selectedPlan = ref('daily');
+const inputRefs = ref<HTMLInputElement[]>([]);
+const audioCtx = ref<AudioContext | null>(null);
 
 const plans = [
   { id: 'daily', label: '日卡', price: 1, desc: '￥1 / 日' },
@@ -111,24 +121,28 @@ const currentWords = computed(() => currentLesson.value.en.split(' '));
 const initInputs = () => {
   inputs.value = currentWords.value.map(() => '');
   feedback.value = '';
+  activeIndex.value = 0;
+  inputRefs.value = [];
 };
 
-const speak = (text: string) => {
-  const utter = new SpeechSynthesisUtterance(text);
-  utter.lang = /[a-zA-Z]/.test(text) ? 'en-US' : 'zh-CN';
-  window.speechSynthesis.cancel();
-  window.speechSynthesis.speak(utter);
+const speak = (text: string) =>
+  new Promise<void>((resolve) => {
+    const utter = new SpeechSynthesisUtterance(text);
+    utter.lang = /[a-zA-Z]/.test(text) ? 'en-US' : 'zh-CN';
+    utter.onend = () => resolve();
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utter);
+  });
+
+const speakSequence = async () => {
+  await speak(currentLesson.value.zh);
+  await speak(currentLesson.value.en);
 };
 
 const statusClass = (index: number) => {
   if (!inputs.value[index]) return '';
   return inputs.value[index].trim().toLowerCase() === currentWords.value[index].toLowerCase() ? 'correct' : 'wrong';
 };
-
-const allCorrect = computed(() =>
-  inputs.value.length === currentWords.value.length &&
-  inputs.value.every((val, idx) => val.trim().toLowerCase() === currentWords.value[idx].toLowerCase())
-);
 
 const shootConfetti = () => {
   confettiPieces.value = Array.from({ length: 28 }).map((_, idx) => ({
@@ -143,22 +157,83 @@ const shootConfetti = () => {
   }, 1600);
 };
 
+const playTone = (frequency: number, duration = 0.08, volume = 0.08) => {
+  if (!audioCtx.value) audioCtx.value = new AudioContext();
+  const ctx = audioCtx.value;
+  const osc = ctx.createOscillator();
+  const gain = ctx.createGain();
+  osc.frequency.value = frequency;
+  gain.gain.value = volume;
+  osc.connect(gain);
+  gain.connect(ctx.destination);
+  osc.start();
+  osc.stop(ctx.currentTime + duration);
+};
+
+const playKeySound = () => playTone(820, 0.06, 0.05);
+const playRewardSound = () => {
+  playTone(660, 0.08, 0.06);
+  setTimeout(() => playTone(880, 0.12, 0.07), 90);
+};
+
+const setInputRef = (el: HTMLInputElement | null, index: number) => {
+  if (el) inputRefs.value[index] = el;
+};
+
+const blankStyle = (word: string) => ({ minWidth: `${underlineWidth(word)}px` });
+const underlineWidth = (word: string) => Math.max(72, word.length * 12 + 16);
+
 const onInput = (index: number) => {
   if (!inputs.value[index]) return;
   const target = currentWords.value[index].toLowerCase();
   const value = inputs.value[index].trim().toLowerCase();
   if (value === target) {
     feedback.value = '√ 正确';
-  } else if (value.length >= target.length) {
-    feedback.value = '× 暗紫提示：单词不对';
-    speak('try again');
   }
 };
 
-const next = () => {
-  if (!allCorrect.value) return;
+const focusIndex = (index: number) => {
+  const target = inputRefs.value[index];
+  if (target) {
+    target.focus();
+    target.select();
+  }
+};
+
+const judgeWord = (index: number) => {
+  playKeySound();
+  const target = currentWords.value[index];
+  const value = inputs.value[index]?.trim();
+  if (!value) {
+    feedback.value = '请输入这个单词';
+    speak(target);
+    return false;
+  }
+  if (value.toLowerCase() === target.toLowerCase()) {
+    feedback.value = '√ 正确，继续';
+    return true;
+  }
+  feedback.value = `${target} 拼写不对，提示已标红`;
+  speak(target);
+  return false;
+};
+
+const evaluateSentence = async () => {
+  const incorrectIndex = inputs.value.findIndex(
+    (val, idx) => val.trim().toLowerCase() !== currentWords.value[idx].toLowerCase()
+  );
+  if (incorrectIndex !== -1) {
+    activeIndex.value = incorrectIndex;
+    focusIndex(incorrectIndex);
+    feedback.value = '还有单词没对上，空格键可立即判定';
+    await speak(currentWords.value[incorrectIndex]);
+    return;
+  }
+  feedback.value = '完美！即将进入下一句';
   userStore.markSentenceFinished();
   shootConfetti();
+  playRewardSound();
+  await speak(currentLesson.value.en);
   setTimeout(() => {
     if (!userStore.isMember && userStore.testsCompleted >= 3) {
       showRecharge.value = true;
@@ -170,7 +245,47 @@ const next = () => {
       currentIndex.value = 0;
     }
     initInputs();
-  }, 500);
+  }, 300);
+};
+
+const handleEnter = (index: number) => {
+  const isCorrect = judgeWord(index);
+  const isLast = index === currentWords.value.length - 1;
+  if (isCorrect && !isLast) {
+    focusIndex(index + 1);
+    activeIndex.value = index + 1;
+    return;
+  }
+  if (isLast) {
+    evaluateSentence();
+  }
+};
+
+const handleSpaceJudge = (index: number) => {
+  const isCorrect = judgeWord(index);
+  if (isCorrect) {
+    const isLast = index === currentWords.value.length - 1;
+    if (isLast) {
+      evaluateSentence();
+    } else {
+      focusIndex(index + 1);
+      activeIndex.value = index + 1;
+    }
+  }
+};
+
+const handleKeydown = (event: KeyboardEvent, index: number) => {
+  if (event.key === 'Enter') {
+    event.preventDefault();
+    handleEnter(index);
+    return;
+  }
+  if (event.key === ' ') {
+    event.preventDefault();
+    handleSpaceJudge(index);
+  } else {
+    playKeySound();
+  }
 };
 
 const prev = () => {
@@ -186,11 +301,39 @@ const pay = () => {
   ElMessage.success('已调用微信支付，会员开通成功（示例）');
   showRecharge.value = false;
 };
+const handleGlobalShortcut = (event: KeyboardEvent) => {
+  if (event.key === '1') {
+    event.preventDefault();
+    speak(currentLesson.value.zh);
+  }
+  if (event.key === '2') {
+    event.preventDefault();
+    speak(currentLesson.value.en);
+  }
+  if (event.key === ' ' && document.activeElement instanceof HTMLInputElement) {
+    event.preventDefault();
+    const focusedIndex = inputRefs.value.findIndex((el) => el === document.activeElement);
+    if (focusedIndex !== -1) handleSpaceJudge(focusedIndex);
+  }
+};
 
-watch(currentWords, initInputs, { immediate: true });
+watch(
+  currentWords,
+  async () => {
+    initInputs();
+    await nextTick();
+    focusIndex(0);
+    await speakSequence();
+  },
+  { immediate: true }
+);
 
 onMounted(() => {
-  speak(currentLesson.value.zh);
+  window.addEventListener('keydown', handleGlobalShortcut);
+});
+
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', handleGlobalShortcut);
 });
 </script>
 
@@ -222,32 +365,33 @@ onMounted(() => {
 }
 
 .zh {
-  font-size: 28px;
-  margin-bottom: 24px;
+  font-size: 20px;
+  margin-bottom: 18px;
+  color: #0f172a;
 }
 
 .en-blanks {
   display: flex;
   justify-content: center;
-  gap: 18px;
+  gap: 14px;
   flex-wrap: wrap;
-  margin-bottom: 12px;
+  margin-bottom: 10px;
 }
 
 .blank {
   position: relative;
-  min-height: 60px;
+  min-height: 56px;
 }
 
 .blank input {
   border: none;
   border-bottom: 2px solid #e2e8f0;
   outline: none;
-  font-size: 24px;
+  font-size: 22px;
   text-align: center;
   background: transparent;
-  padding: 8px 4px;
-  min-width: 100%;
+  padding: 6px 4px 4px;
+  width: 100%;
 }
 
 .blank input.correct {
@@ -262,25 +406,33 @@ onMounted(() => {
 
 .blank .underline {
   position: absolute;
-  left: 0;
-  bottom: 8px;
-  right: 0;
+  left: 50%;
+  bottom: 6px;
   height: 2px;
   background: #cbd5e1;
   pointer-events: none;
+  transform: translateX(-50%);
 }
 
 .feedback {
   min-height: 24px;
-  color: #6366f1;
-  margin-bottom: 10px;
+  color: #4338ca;
+  margin-bottom: 12px;
+  font-weight: 600;
 }
 
 .quick {
   display: flex;
   justify-content: center;
-  gap: 8px;
+  gap: 10px;
   margin-top: 12px;
+  flex-wrap: wrap;
+}
+
+.quick :deep(.el-button) {
+  padding: 10px 14px;
+  font-weight: 700;
+  box-shadow: 0 12px 26px rgba(79, 70, 229, 0.1);
 }
 
 .controls {

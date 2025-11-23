@@ -62,7 +62,17 @@
         <div class="status-right">
           <span class="chip primary">{{ membershipLabel }}</span>
           <span class="chip" v-if="userStore.isAuthenticated">{{ userStore.maskedPhone }}</span>
-          <span class="chip muted" v-else>未登录</span>
+          <el-button
+            v-else
+            class="guest-login"
+            type="primary"
+            plain
+            round
+            size="small"
+            @click="goLogin"
+          >
+            游客模式 · 去登录
+          </el-button>
         </div>
       </section>
 
@@ -342,6 +352,17 @@ onBeforeUnmount(() => {
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
+}
+
+.guest-login {
+  --el-button-text-color: #16a34a;
+  --el-button-border-color: rgba(22, 163, 74, 0.35);
+  --el-button-hover-text-color: #0f172a;
+  --el-button-hover-bg-color: #dcfce7;
+  --el-button-bg-color: #ffffff;
+  font-weight: 700;
+  letter-spacing: 0.2px;
+  box-shadow: 0 10px 24px rgba(22, 163, 74, 0.18);
 }
 
 .status-dot {
