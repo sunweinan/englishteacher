@@ -10,7 +10,16 @@
         </el-input>
       </div>
       <div class="auth">
-        <el-button v-if="!userStore.isAuthenticated" class="login-btn" @click="goLogin">登录</el-button>
+        <el-button
+          v-if="!userStore.isAuthenticated"
+          type="primary"
+          class="login-btn"
+          size="large"
+          round
+          @click="goLogin"
+        >
+          登录
+        </el-button>
         <el-dropdown v-else>
           <span class="user-chip">
             <el-tag type="success" size="small" effect="dark">{{ userStore.isMember ? '会员' : '游客' }}</el-tag>
@@ -181,13 +190,21 @@ onBeforeUnmount(() => {
 }
 
 .login-btn {
-  --el-button-bg-color: #22c55e;
-  --el-button-border-color: #22c55e;
-  --el-button-hover-bg-color: #16a34a;
-  --el-button-hover-border-color: #16a34a;
+  padding: 12px 26px;
+  border-radius: 999px;
+  background: linear-gradient(120deg, #22c55e, #16a34a);
+  border: 1px solid #16a34a;
   color: #fff;
-  font-weight: 700;
-  box-shadow: 0 10px 24px rgba(34, 197, 94, 0.25);
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  box-shadow: 0 12px 28px rgba(34, 197, 94, 0.35);
+}
+
+.login-btn:hover,
+.login-btn:focus {
+  background: linear-gradient(120deg, #16a34a, #15803d);
+  border-color: #15803d;
+  box-shadow: 0 14px 32px rgba(34, 197, 94, 0.45);
 }
 
 .user-chip {

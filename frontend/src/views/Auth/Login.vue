@@ -9,9 +9,16 @@
         <p class="welcome">欢迎使用 enTeacher</p>
         <h2>手机号验证码登录</h2>
         <p class="hint">PC 端以弹窗形式居中，移动端自动撑满屏幕。</p>
-        <el-form @submit.prevent>
-          <el-form-item label="手机号">
-            <el-input v-model="form.phone" maxlength="20" placeholder="请输入手机号">
+        <el-form :model="form" label-position="top" class="form" @submit.prevent>
+          <el-form-item label="手机号" class="field-block">
+            <el-input
+              v-model="form.phone"
+              type="tel"
+              maxlength="20"
+              clearable
+              placeholder="请输入手机号"
+              class="control"
+            >
               <template #prepend>
                 <el-select v-model="form.countryCode" class="code-select">
                   <el-option label="中国 +86" value="+86" />
@@ -21,13 +28,21 @@
               </template>
             </el-input>
           </el-form-item>
-          <el-form-item label="验证码">
+          <el-form-item label="验证码" class="field-block">
             <div class="code-row">
-              <el-input v-model="form.code" maxlength="6" placeholder="输入短信验证码" />
-              <el-button @click="sendCode" :disabled="countdown > 0">{{ buttonText }}</el-button>
+              <el-input
+                v-model="form.code"
+                maxlength="6"
+                clearable
+                placeholder="输入短信验证码"
+                class="control"
+              />
+              <el-button type="success" plain class="code-btn" @click="sendCode" :disabled="countdown > 0">
+                {{ buttonText }}
+              </el-button>
             </div>
           </el-form-item>
-          <el-button type="primary" class="submit" :loading="loading" @click="onSubmit">登录</el-button>
+          <el-button type="primary" class="submit" size="large" :loading="loading" @click="onSubmit">登录</el-button>
         </el-form>
       </div>
     </div>
@@ -149,6 +164,23 @@ onBeforeUnmount(() => {
   margin-bottom: 12px;
 }
 
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.field-block {
+  margin-bottom: 4px;
+}
+
+.control :deep(.el-input__wrapper) {
+  border-radius: 12px;
+  border: 1px solid #e2e8f0;
+  box-shadow: none;
+  padding-inline: 10px;
+}
+
 .code-row {
   display: flex;
   gap: 8px;
@@ -156,6 +188,12 @@ onBeforeUnmount(() => {
 
 .code-select {
   width: 120px;
+}
+
+.code-btn {
+  height: 40px;
+  font-weight: 700;
+  border-radius: 12px;
 }
 
 .submit {
