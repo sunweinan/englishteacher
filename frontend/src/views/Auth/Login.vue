@@ -9,33 +9,52 @@
         <p class="welcome">欢迎使用 enTeacher</p>
         <h2>手机号验证码登录</h2>
         <p class="hint">短信登录更安全，登录后自动同步会员权益。</p>
-        <el-form :model="form" label-position="top" class="form" @submit.prevent>
-          <el-form-item label="手机号" class="field-block">
+        <el-form :model="form" label-position="top" class="form" @submit.prevent="onSubmit">
+          <el-form-item label="手机号" class="field-block" @click="focusPhone">
+            <div class="field-label">手机号</div>
             <div class="code-row">
               <el-input
+                id="phone-input"
+                ref="phoneInputRef"
                 v-model="form.phone"
                 type="tel"
                 inputmode="tel"
                 maxlength="20"
                 clearable
+                autocomplete="tel"
                 placeholder="请输入手机号"
                 class="control"
+                @keyup.enter="onSubmit"
               />
-              <el-button type="primary" class="code-btn" @click="sendCode" :disabled="countdown > 0">
+              <el-button type="primary" class="code-btn" @click.stop="sendCode" :disabled="countdown > 0">
                 {{ buttonText }}
               </el-button>
             </div>
           </el-form-item>
-          <el-form-item label="验证码" class="field-block">
+          <el-form-item label="验证码" class="field-block" @click="focusCode">
+            <div class="field-label">验证码</div>
             <el-input
+              id="code-input"
+              ref="codeInputRef"
               v-model="form.code"
               maxlength="6"
               clearable
+              autocomplete="one-time-code"
               placeholder="输入短信验证码"
               class="control"
+              @keyup.enter="onSubmit"
             />
           </el-form-item>
-          <el-button type="primary" class="submit" size="large" :loading="loading" @click="onSubmit">登录</el-button>
+          <el-button
+            type="primary"
+            class="submit"
+            size="large"
+            native-type="submit"
+            :loading="loading"
+            @click="onSubmit"
+          >
+            登录
+          </el-button>
         </el-form>
       </div>
     </div>
@@ -46,6 +65,7 @@
 import { reactive, ref, computed, onBeforeUnmount } from 'vue';
 import { useRouter, useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
+import type { InputInstance } from 'element-plus';
 import { useUserStore } from '@/store/user';
 
 const userStore = useUserStore();
@@ -55,6 +75,8 @@ const loading = ref(false);
 const countdown = ref(0);
 const timer = ref<number | null>(null);
 const form = reactive({ countryCode: '+86', phone: '', code: '' });
+const phoneInputRef = ref<InputInstance>();
+const codeInputRef = ref<InputInstance>();
 
 const buttonText = computed(() => (countdown.value > 0 ? `${countdown.value}s` : '获取验证码'));
 
@@ -92,6 +114,9 @@ const onSubmit = async () => {
     loading.value = false;
   }
 };
+
+const focusPhone = () => phoneInputRef.value?.focus();
+const focusCode = () => codeInputRef.value?.focus();
 
 onBeforeUnmount(() => {
   if (timer.value) window.clearInterval(timer.value);
@@ -170,7 +195,31 @@ onBeforeUnmount(() => {
 }
 
 .field-block {
-  margin-bottom: 4px;
+  margin-bottom: 6px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  background: #f8fafc;
+  transition: all 0.2s ease;
+  cursor: text;
+}
+
+.field-block:focus-within {
+  border-color: #c7d2fe;
+  box-shadow: 0 12px 30px rgba(99, 102, 241, 0.12);
+  background: #ffffff;
+}
+
+.field-block :deep(.el-form-item__label) {
+  display: none;
+}
+
+.field-label {
+  font-size: 14px;
+  font-weight: 700;
+  color: #0f172a;
+  margin-bottom: 6px;
+  letter-spacing: 0.2px;
 }
 
 .control :deep(.el-input__wrapper) {

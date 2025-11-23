@@ -35,6 +35,11 @@ export const useUserStore = defineStore('user', {
     isMember(state) {
       return state.membership !== 'free';
     },
+    isMembershipActive(state) {
+      if (state.membership === 'free') return false;
+      if (!state.memberUntil) return true;
+      return new Date(state.memberUntil).getTime() >= Date.now();
+    },
     isAdmin(state) {
       return state.role === 'admin';
     }
