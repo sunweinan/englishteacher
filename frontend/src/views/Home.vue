@@ -35,40 +35,62 @@
       </div>
     </header>
 
-    <section class="banner">
-      <div class="text">
-        <p class="eyebrow">LIST / PLAYGROUND / VIP</p>
-        <h1>场景化英语 · 大图沉浸式体验</h1>
-        <p class="desc">手机两列瀑布流、PC多列影院式海报，滑到底自动收住。</p>
-        <div class="actions">
-          <el-button type="primary" @click="goPlayground">立即开练</el-button>
-          <el-button @click="goMember">会员特权</el-button>
-        </div>
-      </div>
-      <div class="poster">
-        <img src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80" alt="learning" />
-      </div>
-    </section>
-
-    <section class="list" ref="listRef">
-      <div
-        v-for="course in visibleCourses"
-        :key="course.id"
-        class="card"
-      >
-        <div class="thumb">
-          <img :src="course.image" :alt="course.title" />
-          <span class="tag">{{ course.tag }}</span>
-        </div>
-        <div class="info">
-          <h3>{{ course.title }}</h3>
-          <p>{{ course.subtitle }}</p>
-          <div class="card-actions">
-            <el-button type="primary" @click="goPlayground(course.id)">进入学习</el-button>
+    <main class="content">
+      <section class="banner">
+        <div class="text">
+          <p class="eyebrow">LIST / PLAYGROUND / VIP</p>
+          <h1>场景化英语 · 大图沉浸式体验</h1>
+          <p class="desc">手机两列瀑布流、PC多列影院式海报，滑到底自动收住。</p>
+          <div class="actions">
+            <el-button type="primary" @click="goPlayground">立即开练</el-button>
+            <el-button @click="goMember">会员特权</el-button>
           </div>
         </div>
-      </div>
-    </section>
+        <div class="poster">
+          <img src="https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=900&q=80" alt="learning" />
+        </div>
+      </section>
+
+      <section class="status-panel">
+        <div class="status-left">
+          <span class="status-dot" :class="{ online: userStore.isAuthenticated }"></span>
+          <div>
+            <p class="status-title">{{ statusLabel }}</p>
+            <p class="status-desc">{{ statusDescription }}</p>
+          </div>
+        </div>
+        <div class="status-right">
+          <span class="chip primary">{{ membershipLabel }}</span>
+          <span class="chip" v-if="userStore.isAuthenticated">{{ userStore.maskedPhone }}</span>
+          <span class="chip muted" v-else>未登录</span>
+        </div>
+      </section>
+
+      <section class="list" ref="listRef">
+        <div
+          v-for="course in visibleCourses"
+          :key="course.id"
+          class="card"
+          role="button"
+          tabindex="0"
+          @click="goPlayground(course.id)"
+          @keydown.enter.prevent="goPlayground(course.id)"
+          @keydown.space.prevent="goPlayground(course.id)"
+        >
+          <div class="thumb">
+            <img :src="course.image" :alt="course.title" />
+            <span class="tag">{{ course.tag }}</span>
+          </div>
+          <div class="info">
+            <h3>{{ course.title }}</h3>
+            <p>{{ course.subtitle }}</p>
+            <div class="card-actions">
+              <el-button type="primary" @click.stop="goPlayground(course.id)">进入学习</el-button>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
 
     <div class="load-status">
       <el-icon v-if="loading"><Loading /></el-icon>
@@ -79,7 +101,7 @@
 </template>
 
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import { Search, Loading } from '@element-plus/icons-vue';
 import { courseCards, type CourseCard } from '@/config/courses';
@@ -95,6 +117,16 @@ const pageSize = 6;
 const visibleCourses = ref<CourseCard[]>([]);
 const filteredCourses = ref<CourseCard[]>(courseCards);
 const hasMore = ref(true);
+
+const statusLabel = computed(() => (userStore.isAuthenticated ? '已登录' : '未登录'));
+const membershipLabel = computed(() => (userStore.isMember ? '会员用户' : '游客模式'));
+const statusDescription = computed(() => {
+  if (userStore.isAuthenticated) {
+    const tag = userStore.isMember ? '会员权益已激活' : '登录中 · 暂未开通会员';
+    return userStore.maskedPhone ? `${userStore.maskedPhone} · ${tag}` : tag;
+  }
+  return '登录后可同步学习记录与会员特权';
+});
 
 const goLogin = () => router.push({ name: 'login' });
 const goPlayground = (courseId?: number) => router.push({ name: 'playground', query: courseId ? { courseId } : {} });
@@ -156,8 +188,12 @@ onBeforeUnmount(() => {
 <style scoped>
 .home-page {
   min-height: 100vh;
-  background: linear-gradient(180deg, #ffffff 0%, #f7f9fb 45%, #ffffff 100%);
-  color: #1c1f2b;
+  background: radial-gradient(circle at 20% 20%, #eef2ff, transparent 32%),
+    radial-gradient(circle at 80% 0%, #ecfeff, transparent 30%),
+    linear-gradient(180deg, #ffffff 0%, #f7f9fb 45%, #ffffff 100%);
+  color: #0f172a;
+  font-family: 'Inter', 'Noto Sans SC', 'PingFang SC', system-ui, -apple-system, BlinkMacSystemFont,
+    'Segoe UI', sans-serif;
 }
 
 .hero {
@@ -187,6 +223,15 @@ onBeforeUnmount(() => {
 .auth {
   display: flex;
   justify-content: flex-end;
+}
+
+.content {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 12px 20px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
 }
 
 .login-btn {
@@ -221,19 +266,25 @@ onBeforeUnmount(() => {
 
 .banner {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 24px;
-  padding: 32px 24px 8px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 28px;
+  padding: 28px 18px 8px;
   align-items: center;
+  background: #ffffff;
+  border: 1px solid #e2e8f0;
+  border-radius: 20px;
+  box-shadow: 0 20px 60px rgba(15, 23, 42, 0.06);
 }
 
 .banner .text h1 {
   margin: 6px 0 8px;
+  font-size: 30px;
+  letter-spacing: 0.4px;
 }
 
 .banner .text .desc {
   color: #64748b;
-  margin-bottom: 12px;
+  margin-bottom: 14px;
 }
 
 .banner .eyebrow {
@@ -255,31 +306,109 @@ onBeforeUnmount(() => {
   gap: 12px;
 }
 
+.status-panel {
+  background: linear-gradient(120deg, rgba(79, 70, 229, 0.1), rgba(16, 185, 129, 0.08));
+  border: 1px solid #e0e7ff;
+  border-radius: 16px;
+  padding: 14px 18px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+
+.status-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #0f172a;
+}
+
+.status-title {
+  margin: 0;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.status-desc {
+  margin: 2px 0 0;
+  color: #475569;
+  font-size: 13px;
+}
+
+.status-right {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: #e2e8f0;
+  box-shadow: 0 0 0 4px rgba(148, 163, 184, 0.2);
+  transition: all 0.2s ease;
+}
+
+.status-dot.online {
+  background: #22c55e;
+  box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.22);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: #f8fafc;
+  color: #0f172a;
+  font-weight: 600;
+  font-size: 13px;
+  border: 1px solid #e2e8f0;
+}
+
+.chip.primary {
+  background: rgba(79, 70, 229, 0.08);
+  color: #4338ca;
+  border-color: rgba(79, 70, 229, 0.28);
+}
+
+.chip.muted {
+  color: #64748b;
+}
+
 .list {
-  padding: 12px 16px 24px;
+  padding: 8px 0 12px;
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: 16px;
+  gap: 18px;
 }
 
 .card {
   background: #fff;
-  border-radius: 16px;
+  border-radius: 18px;
   overflow: hidden;
-  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.05);
+  border: 1px solid #e2e8f0;
   display: flex;
   flex-direction: column;
   transition: transform 0.2s ease, box-shadow 0.2s ease;
+  cursor: pointer;
 }
 
 .card:hover {
-  transform: translateY(-4px);
-  box-shadow: 0 16px 36px rgba(0, 0, 0, 0.08);
+  transform: translateY(-6px);
+  box-shadow: 0 22px 48px rgba(15, 23, 42, 0.08);
+  border-color: #cbd5e1;
 }
 
 .thumb {
   position: relative;
-  height: 170px;
+  height: 180px;
   overflow: hidden;
 }
 
@@ -343,6 +472,13 @@ onBeforeUnmount(() => {
   }
   .thumb {
     height: 190px;
+  }
+  .status-panel {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .status-right {
+    width: 100%;
   }
 }
 </style>
