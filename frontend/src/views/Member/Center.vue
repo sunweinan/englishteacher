@@ -1,7 +1,8 @@
 <template>
   <div class="member-center">
-    <div class="top-actions" v-if="userStore.isAdmin">
-      <el-button type="primary" plain @click="goAdmin">系统后台</el-button>
+    <div class="top-actions">
+      <el-button plain @click="goHome">返回首页</el-button>
+      <el-button v-if="userStore.isAdmin" type="primary" plain @click="goAdmin">系统后台</el-button>
     </div>
     <section class="hero">
       <div>
@@ -90,6 +91,7 @@ const copyLink = async () => {
 
 const goRecharge = () => router.push({ name: 'recharge' });
 const goAdmin = () => router.push({ name: 'admin-dashboard' });
+const goHome = () => router.push({ name: 'home' });
 </script>
 
 <style scoped>
@@ -100,6 +102,7 @@ const goAdmin = () => router.push({ name: 'admin-dashboard' });
 .top-actions {
   display: flex;
   justify-content: flex-end;
+  gap: 8px;
   margin-bottom: 12px;
 }
 

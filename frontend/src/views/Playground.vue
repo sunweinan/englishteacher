@@ -1,7 +1,10 @@
 <template>
   <div class="playground">
     <header class="play-header">
-      <div class="crumb">学习Playground</div>
+      <div class="play-header-left">
+        <el-button class="back-home" text @click="goHome">← 返回首页</el-button>
+        <div class="crumb">学习Playground</div>
+      </div>
       <div class="timer">⌚ 00:00:27</div>
     </header>
 
@@ -89,14 +92,17 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
-import { useRoute } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import { courseCards } from '@/config/courses';
 import { useUserStore } from '@/store/user';
 
 const userStore = useUserStore();
 const route = useRoute();
+const router = useRouter();
 const courseId = computed(() => Number(route.query.courseId));
 const lessons = computed(() => courseCards.find((c) => c.id === courseId.value)?.lessons || courseCards[0].lessons);
+
+const goHome = () => router.push({ name: 'home' });
 
 const currentIndex = ref(0);
 const activeIndex = ref(0);
@@ -430,6 +436,17 @@ onBeforeUnmount(() => {
   align-items: center;
   padding: 12px 20px;
   color: #475569;
+}
+
+.play-header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.back-home {
+  font-weight: 700;
+  color: #2563eb;
 }
 
 .whiteboard {
