@@ -167,41 +167,68 @@ const playTypewriterSound = () => {
   const ctx = ensureAudioContext();
   const baseTime = ctx.currentTime;
 
-  const osc = ctx.createOscillator();
-  osc.type = 'square';
-  osc.frequency.value = 230 + Math.random() * 30;
+  const createClick = (time: number, freq: number, gainValue: number, filterFreq: number) => {
+    const osc = ctx.createOscillator();
+    osc.type = 'square';
+    osc.frequency.value = freq;
 
-  const oscGain = ctx.createGain();
-  oscGain.gain.setValueAtTime(0.14, baseTime);
-  oscGain.gain.exponentialRampToValueAtTime(0.0001, baseTime + 0.1);
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.value = filterFreq;
+    filter.Q.value = 6;
 
-  osc.connect(oscGain);
-  oscGain.connect(ctx.destination);
-  osc.start(baseTime);
-  osc.stop(baseTime + 0.12);
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(gainValue, time);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.09);
 
-  const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.04, ctx.sampleRate);
+    osc.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    osc.start(time);
+    osc.stop(time + 0.12);
+  };
+
+  const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.03, ctx.sampleRate);
   const data = noiseBuffer.getChannelData(0);
   for (let i = 0; i < data.length; i += 1) {
-    data[i] = (Math.random() * 2 - 1) * 0.5;
+    data[i] = (Math.random() * 2 - 1) * 0.35;
   }
 
   const noise = ctx.createBufferSource();
   noise.buffer = noiseBuffer;
 
   const noiseFilter = ctx.createBiquadFilter();
-  noiseFilter.type = 'highpass';
-  noiseFilter.frequency.value = 1200;
+  noiseFilter.type = 'bandpass';
+  noiseFilter.frequency.value = 1800;
+  noiseFilter.Q.value = 5;
 
   const noiseGain = ctx.createGain();
-  noiseGain.gain.setValueAtTime(0.08, baseTime);
-  noiseGain.gain.exponentialRampToValueAtTime(0.0001, baseTime + 0.06);
+  noiseGain.gain.setValueAtTime(0.12, baseTime);
+  noiseGain.gain.exponentialRampToValueAtTime(0.0001, baseTime + 0.05);
 
   noise.connect(noiseFilter);
   noiseFilter.connect(noiseGain);
   noiseGain.connect(ctx.destination);
-  noise.start(baseTime);
-  noise.stop(baseTime + 0.06);
+
+  createClick(baseTime, 170 + Math.random() * 20, 0.16, 900);
+  createClick(baseTime + 0.05, 260 + Math.random() * 30, 0.12, 1400);
+
+  const thunkOsc = ctx.createOscillator();
+  thunkOsc.type = 'sine';
+  thunkOsc.frequency.value = 120 + Math.random() * 15;
+
+  const thunkGain = ctx.createGain();
+  thunkGain.gain.setValueAtTime(0.1, baseTime + 0.02);
+  thunkGain.gain.exponentialRampToValueAtTime(0.0001, baseTime + 0.15);
+
+  thunkOsc.connect(thunkGain);
+  thunkGain.connect(ctx.destination);
+
+  noise.start(baseTime + 0.01);
+  noise.stop(baseTime + 0.08);
+  thunkOsc.start(baseTime + 0.02);
+  thunkOsc.stop(baseTime + 0.17);
 };
 
 const playTone = (frequency: number, duration = 0.08, volume = 0.08) => {
@@ -234,7 +261,7 @@ const onInput = (index: number) => {
   const target = currentWords.value[index].toLowerCase();
   const value = inputs.value[index].trim().toLowerCase();
   if (value === target) {
-    feedback.value = '√ 正确';
+    feedback.value = '✅ 正确';
   }
 };
 
@@ -256,10 +283,10 @@ const judgeWord = (index: number) => {
     return false;
   }
   if (value.toLowerCase() === target.toLowerCase()) {
-    feedback.value = '√ 正确，继续';
+    feedback.value = '✅ 正确，继续';
     return true;
   }
-  feedback.value = `${target} 拼写不对，提示已标红`;
+  feedback.value = `${target} 拼写不对`;
   speak(target);
   return false;
 };
@@ -324,6 +351,15 @@ const handleSpaceJudge = (index: number) => {
 };
 
 const handleKeydown = (event: KeyboardEvent, index: number) => {
+  if (event.key === 'Backspace' && !inputs.value[index]) {
+    if (index > 0) {
+      event.preventDefault();
+      const prevIndex = index - 1;
+      activeIndex.value = prevIndex;
+      focusIndex(prevIndex);
+    }
+    return;
+  }
   if (event.key === 'Enter') {
     event.preventDefault();
     handleEnter(index);
