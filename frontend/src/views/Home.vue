@@ -142,7 +142,7 @@ const statusDescription = computed(() => {
 const goLogin = () => router.push({ name: 'login' });
 const goPlayground = (courseId?: number) => router.push({ name: 'playground', query: courseId ? { courseId } : {} });
 const goMember = () => router.push({ name: 'member-center' });
-const goAdmin = () => router.push({ name: 'admin-dashboard' });
+const goAdmin = () => router.push({ name: 'admin-members' });
 
 const filterCourses = () => {
   const word = keyword.value.trim().toLowerCase();
