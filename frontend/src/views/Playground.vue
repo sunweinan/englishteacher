@@ -107,6 +107,7 @@ const showRecharge = ref(false);
 const selectedPlan = ref('daily');
 const inputRefs = ref<HTMLInputElement[]>([]);
 const audioCtx = ref<AudioContext | null>(null);
+const consecutiveCorrect = ref(0);
 
 const plans = [
   { id: 'daily', label: '日卡', price: 1, desc: '￥1 / 日' },
@@ -180,8 +181,8 @@ const setInputRef = (el: HTMLInputElement | null, index: number) => {
   if (el) inputRefs.value[index] = el;
 };
 
-const blankStyle = (word: string) => ({ minWidth: `${underlineWidth(word)}px` });
-const underlineWidth = (word: string) => Math.max(72, word.length * 12 + 16);
+const blankStyle = (word: string) => ({ width: `${underlineWidth(word)}px` });
+const underlineWidth = (word: string) => Math.max(24, word.length * 12 + 8);
 
 const onInput = (index: number) => {
   if (!inputs.value[index]) return;
@@ -227,15 +228,18 @@ const evaluateSentence = async () => {
     focusIndex(incorrectIndex);
     feedback.value = '还有单词没对上，空格键可立即判定';
     await speak(currentWords.value[incorrectIndex]);
+    consecutiveCorrect.value = 0;
     return;
   }
   feedback.value = '完美！即将进入下一句';
   userStore.markSentenceFinished();
+  consecutiveCorrect.value += 1;
   shootConfetti();
   playRewardSound();
   await speak(currentLesson.value.en);
   setTimeout(() => {
-    if (!userStore.isMember && userStore.testsCompleted >= 3) {
+    if (!userStore.isMembershipActive && consecutiveCorrect.value >= 3) {
+      consecutiveCorrect.value = 0;
       showRecharge.value = true;
       return;
     }
@@ -362,11 +366,15 @@ onBeforeUnmount(() => {
   width: min(960px, 90vw);
   text-align: center;
   position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
 }
 
 .zh {
   font-size: 20px;
-  margin-bottom: 18px;
+  margin-bottom: 6px;
   color: #0f172a;
 }
 
@@ -375,33 +383,38 @@ onBeforeUnmount(() => {
   justify-content: center;
   gap: 14px;
   flex-wrap: wrap;
-  margin-bottom: 10px;
+  margin-bottom: 6px;
 }
 
 .blank {
   position: relative;
-  min-height: 56px;
+  min-height: 62px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
 }
 
 .blank input {
   border: none;
-  border-bottom: 2px solid #e2e8f0;
   outline: none;
   font-size: 22px;
   text-align: center;
   background: transparent;
-  padding: 6px 4px 4px;
+  padding: 8px 6px 12px;
   width: 100%;
+  color: #0f172a;
+  letter-spacing: 0.4px;
+  border-radius: 0;
 }
 
 .blank input.correct {
   color: #16a34a;
-  border-color: #16a34a;
+  font-weight: 700;
 }
 
 .blank input.wrong {
   color: #5b2c6f;
-  border-color: #5b2c6f;
 }
 
 .blank .underline {
@@ -417,7 +430,7 @@ onBeforeUnmount(() => {
 .feedback {
   min-height: 24px;
   color: #4338ca;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
   font-weight: 600;
 }
 
