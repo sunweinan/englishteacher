@@ -158,9 +158,54 @@ const shootConfetti = () => {
   }, 1600);
 };
 
-const playTone = (frequency: number, duration = 0.08, volume = 0.08) => {
+const ensureAudioContext = () => {
   if (!audioCtx.value) audioCtx.value = new AudioContext();
-  const ctx = audioCtx.value;
+  return audioCtx.value;
+};
+
+const playTypewriterSound = () => {
+  const ctx = ensureAudioContext();
+  const baseTime = ctx.currentTime;
+
+  const osc = ctx.createOscillator();
+  osc.type = 'square';
+  osc.frequency.value = 230 + Math.random() * 30;
+
+  const oscGain = ctx.createGain();
+  oscGain.gain.setValueAtTime(0.14, baseTime);
+  oscGain.gain.exponentialRampToValueAtTime(0.0001, baseTime + 0.1);
+
+  osc.connect(oscGain);
+  oscGain.connect(ctx.destination);
+  osc.start(baseTime);
+  osc.stop(baseTime + 0.12);
+
+  const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.04, ctx.sampleRate);
+  const data = noiseBuffer.getChannelData(0);
+  for (let i = 0; i < data.length; i += 1) {
+    data[i] = (Math.random() * 2 - 1) * 0.5;
+  }
+
+  const noise = ctx.createBufferSource();
+  noise.buffer = noiseBuffer;
+
+  const noiseFilter = ctx.createBiquadFilter();
+  noiseFilter.type = 'highpass';
+  noiseFilter.frequency.value = 1200;
+
+  const noiseGain = ctx.createGain();
+  noiseGain.gain.setValueAtTime(0.08, baseTime);
+  noiseGain.gain.exponentialRampToValueAtTime(0.0001, baseTime + 0.06);
+
+  noise.connect(noiseFilter);
+  noiseFilter.connect(noiseGain);
+  noiseGain.connect(ctx.destination);
+  noise.start(baseTime);
+  noise.stop(baseTime + 0.06);
+};
+
+const playTone = (frequency: number, duration = 0.08, volume = 0.08) => {
+  const ctx = ensureAudioContext();
   const osc = ctx.createOscillator();
   const gain = ctx.createGain();
   osc.frequency.value = frequency;
@@ -171,7 +216,7 @@ const playTone = (frequency: number, duration = 0.08, volume = 0.08) => {
   osc.stop(ctx.currentTime + duration);
 };
 
-const playKeySound = () => playTone(820, 0.06, 0.05);
+const playKeySound = () => playTypewriterSound();
 const playRewardSound = () => {
   playTone(660, 0.08, 0.06);
   setTimeout(() => playTone(880, 0.12, 0.07), 90);
