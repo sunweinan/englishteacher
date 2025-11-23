@@ -9,25 +9,27 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
+    path: '/playground',
+    name: 'playground',
+    component: () => import('@/views/Playground.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/auth/login',
     name: 'login',
     component: () => import('@/views/Auth/Login.vue'),
     meta: { requiresAuth: false }
   },
   {
-    path: '/products',
-    name: 'product-list',
-    component: () => import('@/views/Product/List.vue')
+    path: '/member',
+    name: 'member-center',
+    component: () => import('@/views/Member/Center.vue'),
+    meta: { requiresAuth: true }
   },
   {
-    path: '/products/:id',
-    name: 'product-detail',
-    component: () => import('@/views/Product/Detail.vue')
-  },
-  {
-    path: '/checkout',
-    name: 'checkout',
-    component: () => import('@/views/Payment/Checkout.vue'),
+    path: '/recharge',
+    name: 'recharge',
+    component: () => import('@/views/Payment/Plans.vue'),
     meta: { requiresAuth: true }
   },
   {
@@ -37,23 +39,28 @@ const routes = [
     children: [
       {
         path: '',
-        name: 'admin-home',
+        name: 'admin-dashboard',
         component: () => import('@/views/Admin/Dashboard.vue')
       },
       {
-        path: 'users',
-        name: 'admin-users',
-        component: () => import('@/views/Admin/Users.vue')
+        path: 'members',
+        name: 'admin-members',
+        component: () => import('@/views/Admin/Members.vue')
       },
       {
-        path: 'products',
-        name: 'admin-products',
-        component: () => import('@/views/Admin/Products.vue')
+        path: 'payments',
+        name: 'admin-payments',
+        component: () => import('@/views/Admin/Payments.vue')
       },
       {
-        path: 'orders',
-        name: 'admin-orders',
-        component: () => import('@/views/Admin/Orders.vue')
+        path: 'settings',
+        name: 'admin-settings',
+        component: () => import('@/views/Admin/SystemConfig.vue')
+      },
+      {
+        path: 'courses',
+        name: 'admin-courses',
+        component: () => import('@/views/Admin/Courses.vue')
       }
     ]
   }
@@ -75,7 +82,7 @@ const checkAuth = (to: RouteLocationNormalized, next: NavigationGuardNext) => {
 
 const checkRole = (to: RouteLocationNormalized, next: NavigationGuardNext) => {
   const userStore = useUserStore();
-  if (to.meta.role && userStore.user?.role !== to.meta.role) {
+  if (to.meta.role && userStore.role !== to.meta.role) {
     next({ name: 'home' });
     return false;
   }

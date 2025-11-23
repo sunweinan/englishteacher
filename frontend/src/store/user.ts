@@ -1,25 +1,43 @@
 import { defineStore } from 'pinia';
-import axios from '@/utils/http';
-import { API_ENDPOINTS } from '@/config/api';
 
-export interface UserProfile {
-  id: number;
-  username: string;
-  role: 'user' | 'admin';
-}
+export type MembershipLevel = 'free' | 'daily' | 'monthly' | 'yearly' | 'lifetime';
 
 interface AuthState {
   token: string | null;
-  user: UserProfile | null;
+  phone: string | null;
+  membership: MembershipLevel;
+  memberUntil: string | null;
+  referrals: number;
+  testsCompleted: number;
+  role: 'user' | 'admin';
 }
+
+const maskPhone = (phone: string) => {
+  if (!phone || phone.length < 7) return phone;
+  return `${phone.slice(0, 3)}****${phone.slice(-4)}`;
+};
 
 export const useUserStore = defineStore('user', {
   state: (): AuthState => ({
     token: localStorage.getItem('token'),
-    user: null
+    phone: localStorage.getItem('phone'),
+    membership: (localStorage.getItem('membership') as MembershipLevel) || 'free',
+    memberUntil: localStorage.getItem('memberUntil'),
+    referrals: Number(localStorage.getItem('referrals') || 0),
+    testsCompleted: 0,
+    role: (localStorage.getItem('role') as 'user' | 'admin') || 'user'
   }),
   getters: {
-    isAuthenticated: (state) => !!state.token
+    isAuthenticated: (state) => !!state.token,
+    maskedPhone(state) {
+      return state.phone ? maskPhone(state.phone) : '';
+    },
+    isMember(state) {
+      return state.membership !== 'free';
+    },
+    isAdmin(state) {
+      return state.role === 'admin';
+    }
   },
   actions: {
     setToken(token: string | null) {
@@ -30,19 +48,54 @@ export const useUserStore = defineStore('user', {
         localStorage.removeItem('token');
       }
     },
-    async login(username: string, password: string) {
-      const res = await axios.post(API_ENDPOINTS.authLogin, { username, password });
-      this.setToken(res.data.access_token);
-      await this.fetchProfile();
+    persistProfile() {
+      if (this.phone) localStorage.setItem('phone', this.phone);
+      if (this.membership) localStorage.setItem('membership', this.membership);
+      if (this.memberUntil) localStorage.setItem('memberUntil', this.memberUntil);
+      localStorage.setItem('referrals', String(this.referrals));
+      localStorage.setItem('role', this.role);
     },
-    async fetchProfile() {
-      if (!this.token) return;
-      const res = await axios.get(API_ENDPOINTS.authMe);
-      this.user = res.data;
+    loginWithCode(phone: string) {
+      if (!/^[0-9]{11}$/.test(phone)) {
+        throw new Error('请输入合法的11位手机号');
+      }
+      this.phone = phone;
+      this.setToken(`token-${phone}-${Date.now()}`);
+      this.role = phone.endsWith('0000') ? 'admin' : 'user';
+      this.persistProfile();
     },
     logout() {
+      this.phone = null;
+      this.membership = 'free';
+      this.memberUntil = null;
+      this.referrals = 0;
+      this.testsCompleted = 0;
+      this.role = 'user';
       this.setToken(null);
-      this.user = null;
+      localStorage.removeItem('phone');
+      localStorage.removeItem('membership');
+      localStorage.removeItem('memberUntil');
+      localStorage.removeItem('referrals');
+      localStorage.removeItem('role');
+    },
+    upgradeMembership(level: MembershipLevel, until: string | null = null) {
+      this.membership = level;
+      this.memberUntil = until;
+      this.persistProfile();
+    },
+    updatePhone(phone: string) {
+      this.phone = phone;
+      this.persistProfile();
+    },
+    recordReferral() {
+      this.referrals += 1;
+      this.persistProfile();
+    },
+    markSentenceFinished() {
+      this.testsCompleted += 1;
+    },
+    resetProgressCounter() {
+      this.testsCompleted = 0;
     }
   }
 });
