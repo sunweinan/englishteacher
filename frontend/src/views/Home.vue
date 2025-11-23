@@ -10,6 +10,7 @@
         </el-input>
       </div>
       <div class="auth">
+        <el-button class="admin-btn" plain size="large" @click="goAdmin">后台</el-button>
         <el-button
           v-if="!userStore.isAuthenticated"
           type="primary"
@@ -141,6 +142,7 @@ const statusDescription = computed(() => {
 const goLogin = () => router.push({ name: 'login' });
 const goPlayground = (courseId?: number) => router.push({ name: 'playground', query: courseId ? { courseId } : {} });
 const goMember = () => router.push({ name: 'member-center' });
+const goAdmin = () => router.push({ name: 'admin-dashboard' });
 
 const filterCourses = () => {
   const word = keyword.value.trim().toLowerCase();
@@ -233,6 +235,12 @@ onBeforeUnmount(() => {
 .auth {
   display: flex;
   justify-content: flex-end;
+  gap: 10px;
+}
+
+.admin-btn {
+  border-radius: 999px;
+  font-weight: 700;
 }
 
 .content {
