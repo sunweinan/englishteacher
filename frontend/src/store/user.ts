@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia';
 import axios from '@/utils/http';
+import { API_ENDPOINTS } from '@/config/api';
 
 export interface UserProfile {
   id: number;
@@ -30,13 +31,13 @@ export const useUserStore = defineStore('user', {
       }
     },
     async login(username: string, password: string) {
-      const res = await axios.post('/auth/login', { username, password });
+      const res = await axios.post(API_ENDPOINTS.authLogin, { username, password });
       this.setToken(res.data.access_token);
       await this.fetchProfile();
     },
     async fetchProfile() {
       if (!this.token) return;
-      const res = await axios.get('/auth/me');
+      const res = await axios.get(API_ENDPOINTS.authMe);
       this.user = res.data;
     },
     logout() {

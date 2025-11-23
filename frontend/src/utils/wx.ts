@@ -1,5 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import axios from '@/utils/http';
+import { API_ENDPOINTS } from '@/config/api';
 
 interface WechatConfigResponse {
   appId: string;
@@ -32,7 +33,7 @@ function loadJSSDK(): Promise<void> {
 
 export async function initWechatSDK(url: string) {
   await loadJSSDK();
-  const { data } = await axios.get<WechatConfigResponse>('/payments/wechat/config', { params: { url } });
+  const { data } = await axios.get<WechatConfigResponse>(API_ENDPOINTS.wechatConfig, { params: { url } });
   const wx = (window as any).wx;
   wx.config({
     debug: false,
@@ -58,6 +59,6 @@ export async function callWechatPay(prepay: PrepayParams) {
 }
 
 export async function createWechatOrder(payload: Record<string, any>) {
-  const { data } = await axios.post('/payments/wechat', payload);
+  const { data } = await axios.post(API_ENDPOINTS.wechatOrder, payload);
   return data;
 }
