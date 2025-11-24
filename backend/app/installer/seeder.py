@@ -49,20 +49,21 @@ def seed_users(db: Session, admin_payload: Dict[str, str]) -> None:
   db.commit()
 
 
-def seed_settings(db: Session, overrides: Dict[str, str]) -> None:
+def seed_settings(db: Session, overrides: Dict[str, str], *, overwrite_existing: bool = True) -> None:
   settings: Iterable[Dict[str, str]] = _read_json('system_settings.json')
   for setting in settings:
     merged_value = overrides.get(setting['key']) if overrides.get(setting['key']) is not None else setting['value']
     exists = db.query(SystemSetting).filter(SystemSetting.category == setting['category'], SystemSetting.key == setting['key']).first()
     if exists:
-      exists.value = str(merged_value)
-      db.add(exists)
+      if overwrite_existing:
+        exists.value = str(merged_value)
+        db.add(exists)
       continue
     db.add(SystemSetting(category=setting['category'], key=setting['key'], value=str(merged_value), description=setting.get('description', '')))
   db.commit()
 
 
-def seed_integrations(db: Session, wechat_config: Dict[str, Any], sms_config: Dict[str, Any]) -> None:
+def seed_integrations(db: Session, wechat_config: Dict[str, Any], sms_config: Dict[str, Any], *, overwrite_existing: bool = True) -> None:
   integrations: List[Dict[str, Any]] = _read_json('integrations.json')
   for entry in integrations:
     provider = entry.get('provider')
@@ -87,30 +88,32 @@ def seed_integrations(db: Session, wechat_config: Dict[str, Any], sms_config: Di
 
     existing = db.query(IntegrationConfig).filter(IntegrationConfig.provider == provider).first()
     if existing:
-      existing.config = config
-      existing.is_active = is_active
-      existing.label = label
-      db.add(existing)
+      if overwrite_existing:
+        existing.config = config
+        existing.is_active = is_active
+        existing.label = label
+        db.add(existing)
       continue
     db.add(IntegrationConfig(provider=provider, config=config, is_active=is_active, label=label))
   db.commit()
 
 
-def seed_membership_settings(db: Session) -> None:
+def seed_membership_settings(db: Session, *, overwrite_existing: bool = True) -> None:
   settings: List[Dict[str, Any]] = _read_json('membership_settings.json')
   for setting in settings:
     existing = db.query(MembershipSetting).filter(MembershipSetting.level == setting['level']).first()
     if existing:
-      existing.price = setting['price']
-      existing.duration_days = setting.get('duration_days', 0)
-      existing.description = setting.get('description', '')
-      db.add(existing)
+      if overwrite_existing:
+        existing.price = setting['price']
+        existing.duration_days = setting.get('duration_days', 0)
+        existing.description = setting.get('description', '')
+        db.add(existing)
       continue
     db.add(MembershipSetting(**setting))
   db.commit()
 
 
-def seed_recharge_records(db: Session) -> None:
+def seed_recharge_records(db: Session, *, overwrite_existing: bool = True) -> None:
   records: List[Dict[str, Any]] = _read_json('admin_payments.json')
   for record in records:
     order_no = record['orderNo']
@@ -125,22 +128,24 @@ def seed_recharge_records(db: Session) -> None:
       'paid_at': paid_at
     }
     if existing:
-      for key, value in payload.items():
-        setattr(existing, key, value)
-      db.add(existing)
+      if overwrite_existing:
+        for key, value in payload.items():
+          setattr(existing, key, value)
+        db.add(existing)
       continue
     db.add(RechargeRecord(**payload))
   db.commit()
 
 
-def seed_dashboard_stats(db: Session) -> None:
+def seed_dashboard_stats(db: Session, *, overwrite_existing: bool = True) -> None:
   stats: List[Dict[str, Any]] = _read_json('admin_dashboard_stats.json')
   for entry in stats:
     existing = db.query(AdminDashboardStat).filter(AdminDashboardStat.label == entry['label']).first()
     if existing:
-      existing.value = entry.get('value', '')
-      existing.note = entry.get('note', '')
-      db.add(existing)
+      if overwrite_existing:
+        existing.value = entry.get('value', '')
+        existing.note = entry.get('note', '')
+        db.add(existing)
       continue
     db.add(AdminDashboardStat(label=entry['label'], value=entry.get('value', ''), note=entry.get('note', '')))
   db.commit()

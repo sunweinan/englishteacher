@@ -16,6 +16,7 @@ export const API_ENDPOINTS = {
   wechatConfig: '/payments/wechat/config',
   wechatOrder: '/payments/wechat',
   adminDatabaseTest: '/admin/database/test',
+  adminDatabaseSeed: '/admin/database/seed',
   adminConfig: '/admin/config',
   installStatus: '/install/status',
   installRun: '/install/run'

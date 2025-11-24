@@ -50,6 +50,7 @@
         </el-form-item>
         <el-form-item>
           <el-button type="primary" :loading="testing" @click="testDatabase">检测数据库连接</el-button>
+          <el-button type="primary" plain :loading="seeding" style="margin-left: 12px" @click="initializeDatabase">初始化数据库</el-button>
         </el-form-item>
       </el-form>
     </el-card>
@@ -83,6 +84,7 @@ const defaultConfig = {
 const config = reactive({ ...defaultConfig });
 const passwordForm = reactive({ old: '', new1: '', new2: '' });
 const testing = ref(false);
+const seeding = ref(false);
 const loading = ref(false);
 
 const applyConfig = (data: Record<string, any>) => {
@@ -191,6 +193,19 @@ const testDatabase = async () => {
     ElMessage.error(message);
   } finally {
     testing.value = false;
+  }
+};
+
+const initializeDatabase = async () => {
+  seeding.value = true;
+  try {
+    const response = await http.post(API_ENDPOINTS.adminDatabaseSeed);
+    ElMessage.success(response.data?.message || '数据库初始化成功');
+  } catch (error: any) {
+    const message = error?.response?.data?.detail || '数据库初始化失败，请检查配置';
+    ElMessage.error(message);
+  } finally {
+    seeding.value = false;
   }
 };
 
