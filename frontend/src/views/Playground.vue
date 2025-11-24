@@ -325,7 +325,6 @@ const evaluateSentence = async () => {
     } else {
       currentIndex.value = 0;
     }
-    initInputs();
   }, 300);
 };
 
@@ -380,7 +379,6 @@ const handleKeydown = (event: KeyboardEvent, index: number) => {
 
 const prev = () => {
   currentIndex.value = Math.max(0, currentIndex.value - 1);
-  initInputs();
 };
 
 const resetInputs = () => initInputs();
@@ -419,7 +417,7 @@ const handleGlobalShortcut = (event: KeyboardEvent) => {
   }
 };
 
-const refreshLessons = async () => {
+const prepareCurrentLesson = async () => {
   if (!lessons.value.length) {
     inputs.value = [];
     return;
@@ -430,10 +428,21 @@ const refreshLessons = async () => {
   await speakSequence();
 };
 
-watch(lessons, refreshLessons);
+watch(lessons, (list) => {
+  currentIndex.value = 0;
+  if (!list.length) {
+    inputs.value = [];
+  }
+});
+
+watch(currentIndex, async () => {
+  if (!lessons.value.length) return;
+  await prepareCurrentLesson();
+});
 
 onMounted(async () => {
   await coursesStore.fetchCourses();
+  await prepareCurrentLesson();
   window.addEventListener('keydown', handleGlobalShortcut);
 });
 

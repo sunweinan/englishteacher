@@ -80,14 +80,21 @@ const form = reactive({ countryCode: '+86', phone: '', code: '' });
 const phoneInputRef = ref<InputInstance>();
 const codeInputRef = ref<InputInstance>();
 
+const fullPhone = computed(() => `${form.countryCode}${form.phone}`.replace(/\D+/g, ''));
 const buttonText = computed(() => (countdown.value > 0 ? `${countdown.value}s` : '获取验证码'));
 
-const sendCode = async () => {
-  const normalizedPhone = form.phone.replace(/\D+/g, '');
+const validatePhone = () => {
+  const normalizedPhone = fullPhone.value;
   if (!/^\d{4,20}$/.test(normalizedPhone)) {
     ElMessage.error('请输入正确的手机号');
-    return;
+    return null;
   }
+  return normalizedPhone;
+};
+
+const sendCode = async () => {
+  const normalizedPhone = validatePhone();
+  if (!normalizedPhone) return;
   try {
     const { data } = await http.post(API_ENDPOINTS.authSendCode, { phone: normalizedPhone });
     countdown.value = 60;
@@ -95,6 +102,7 @@ const sendCode = async () => {
       countdown.value -= 1;
       if (countdown.value <= 0 && timer.value) {
         window.clearInterval(timer.value);
+        timer.value = null;
       }
     }, 1000);
     ElMessage.success(`验证码已发送${data.code ? `（演示码：${data.code}）` : ''}`);
@@ -104,14 +112,14 @@ const sendCode = async () => {
 };
 
 const onSubmit = async () => {
-  const normalizedPhone = form.phone.replace(/\D+/g, '');
+  const normalizedPhone = validatePhone();
   if (!normalizedPhone || !form.code) {
     ElMessage.error('请输入手机号和验证码');
     return;
   }
   loading.value = true;
   try {
-    await userStore.loginWithCode(`${form.countryCode}${normalizedPhone}`.replace(/\D+/g, ''), form.code);
+    await userStore.loginWithCode(normalizedPhone, form.code);
     ElMessage.success('登录成功');
     const redirect = route.query.redirect as string | undefined;
     router.push(redirect || { name: 'home' });
@@ -210,6 +218,9 @@ onBeforeUnmount(() => {
   background: #f8fafc;
   transition: all 0.2s ease;
   cursor: text;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .field-block:focus-within {
@@ -226,8 +237,11 @@ onBeforeUnmount(() => {
   font-size: 14px;
   font-weight: 700;
   color: #0f172a;
-  margin-bottom: 6px;
   letter-spacing: 0.2px;
+}
+
+.control {
+  flex: 1;
 }
 
 .control :deep(.el-input__wrapper) {
@@ -239,7 +253,8 @@ onBeforeUnmount(() => {
 
 .code-row {
   display: flex;
-  gap: 8px;
+  gap: 12px;
+  align-items: center;
 }
 
 .code-btn {
@@ -249,6 +264,8 @@ onBeforeUnmount(() => {
   padding: 0 14px;
   letter-spacing: 0.2px;
   box-shadow: 0 10px 24px rgba(34, 197, 94, 0.28);
+  min-width: 96px;
+  flex-shrink: 0;
 }
 
 .submit {
