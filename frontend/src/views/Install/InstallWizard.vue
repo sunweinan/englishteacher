@@ -73,7 +73,7 @@
           <el-input v-model="form.adminPassword" type="password" show-password />
         </el-form-item>
 
-        <el-divider>支付与短信</el-divider>
+        <el-divider>微信支付</el-divider>
         <el-form-item label="微信支付 AppID">
           <el-input v-model="form.wechatAppId" />
         </el-form-item>
@@ -83,6 +83,8 @@
         <el-form-item label="微信 API Key">
           <el-input v-model="form.wechatApiKey" type="password" show-password />
         </el-form-item>
+
+        <el-divider>短信服务</el-divider>
         <el-form-item label="短信服务商">
           <el-input v-model="form.smsProvider" />
         </el-form-item>
