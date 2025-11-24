@@ -1,5 +1,6 @@
-import { createRouter, createWebHistory, type NavigationGuardNext, type RouteLocationNormalized } from 'vue-router';
+import { createRouter, createWebHistory } from 'vue-router';
 import { useUserStore } from '@/store/user';
+import { useAdminAuthStore } from '@/store/adminAuth';
 
 const routes = [
   {
@@ -21,6 +22,12 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
+    path: '/admin/login',
+    name: 'admin-login',
+    component: () => import('@/views/Admin/AdminLogin.vue'),
+    meta: { requiresAdmin: false }
+  },
+  {
     path: '/member',
     name: 'member-center',
     component: () => import('@/views/Member/Center.vue'),
@@ -35,7 +42,7 @@ const routes = [
   {
     path: '/admin',
     component: () => import('@/views/Admin/Layout.vue'),
-    meta: { requiresAuth: true },
+    meta: { requiresAdmin: true },
     children: [
       {
         path: '',
@@ -71,25 +78,20 @@ const router = createRouter({
   routes
 });
 
-const checkAuth = (to: RouteLocationNormalized, next: NavigationGuardNext) => {
+router.beforeEach((to, _from, next) => {
   const userStore = useUserStore();
+  const adminStore = useAdminAuthStore();
+
+  if (to.meta.requiresAdmin && !adminStore.isAuthenticated) {
+    next({ name: 'admin-login', query: { redirect: to.fullPath } });
+    return;
+  }
+
   if (to.meta.requiresAuth && !userStore.isAuthenticated) {
     next({ name: 'login', query: { redirect: to.fullPath } });
-    return false;
+    return;
   }
-  return true;
-};
 
-const checkRole = (to: RouteLocationNormalized, next: NavigationGuardNext) => {
-  const userStore = useUserStore();
-  // TODO: add role-based access control rules when backend roles are available
-  return true;
-};
-
-router.beforeEach((to, _from, next) => {
-  const authed = checkAuth(to, next);
-  if (!authed) return;
-  checkRole(to, next);
   next();
 });
 
