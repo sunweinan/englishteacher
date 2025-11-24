@@ -1,0 +1,12 @@
+{
+  "server_ip": "10.10.10.8",
+  "domain": "english.example.com",
+  "login_user": "root",
+  "login_password": "Admin@123",
+  "db_host": "127.0.0.1",
+  "db_port": 3306,
+  "db_name": "english_db",
+  "db_user": "english_user",
+  "db_password": "db_pass_123",
+  "root_password": "Ad123456"
+}

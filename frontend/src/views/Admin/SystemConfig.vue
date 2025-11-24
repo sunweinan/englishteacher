@@ -59,6 +59,24 @@
       <el-button type="primary" @click="save">保存配置</el-button>
       <el-button plain @click="reset">重置未保存更改</el-button>
     </div>
+
+    <el-dialog v-model="permissionDialog.visible" title="缺少写入权限" width="520px">
+      <p>{{ permissionDialog.message }}</p>
+      <p class="mt-8">请在服务器终端执行以下命令后重试：</p>
+      <el-alert
+        type="info"
+        :closable="false"
+        show-icon
+        class="mt-8"
+        :title="permissionDialog.command"
+      />
+      <p v-if="permissionDialog.path" class="mt-8">受影响的路径：{{ permissionDialog.path }}</p>
+      <template #footer>
+        <span class="dialog-footer">
+          <el-button type="primary" @click="permissionDialog.visible = false">知道了</el-button>
+        </span>
+      </template>
+    </el-dialog>
   </div>
 </template>
 
@@ -86,6 +104,19 @@ const passwordForm = reactive({ old: '', new1: '', new2: '' });
 const testing = ref(false);
 const seeding = ref(false);
 const loading = ref(false);
+const permissionDialog = reactive({
+  visible: false,
+  message: '',
+  command: 'chmod -R 775 backend/app/install/seed_data',
+  path: ''
+});
+
+const showPermissionDialog = (detail: any) => {
+  permissionDialog.message = detail?.message || '写入 seed_data 目录失败，请检查文件权限。';
+  permissionDialog.command = detail?.command || permissionDialog.command;
+  permissionDialog.path = detail?.path || '';
+  permissionDialog.visible = true;
+};
 
 const applyConfig = (data: Record<string, any>) => {
   const merged = { ...defaultConfig };
@@ -153,7 +184,12 @@ const save = () => {
     })
     .catch((error) => {
       console.error(error);
-      ElMessage.error('保存配置失败，请稍后重试');
+      const detail = error?.response?.data?.detail;
+      if (detail?.code === 'SEED_DATA_PERMISSION_DENIED') {
+        showPermissionDialog(detail);
+        return;
+      }
+      ElMessage.error(detail?.message || '保存配置失败，请稍后重试');
     })
     .finally(() => {
       loading.value = false;
