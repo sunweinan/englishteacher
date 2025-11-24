@@ -10,7 +10,15 @@
         </el-input>
       </div>
       <div class="auth">
-        <el-button class="admin-btn" plain size="large" @click="goAdmin">后台</el-button>
+        <el-button
+          class="admin-btn"
+          plain
+          size="large"
+          :title="`后端管理：${adminUrl}`"
+          @click="goAdmin"
+        >
+          后台
+        </el-button>
         <el-button
           v-if="!userStore.isAuthenticated"
           type="primary"
@@ -117,6 +125,7 @@ import { useRouter } from 'vue-router';
 import { Search, Loading } from '@element-plus/icons-vue';
 import { courseCards, type CourseCard } from '@/config/courses';
 import { useUserStore } from '@/store/user';
+import { getApiBaseUrl } from '@/config/api';
 
 const router = useRouter();
 const userStore = useUserStore();
@@ -128,6 +137,7 @@ const pageSize = 6;
 const visibleCourses = ref<CourseCard[]>([]);
 const filteredCourses = ref<CourseCard[]>(courseCards);
 const hasMore = ref(true);
+const adminUrl = computed(() => `${getApiBaseUrl()}/admin`);
 
 const statusLabel = computed(() => (userStore.isAuthenticated ? '已登录' : '未登录'));
 const membershipLabel = computed(() => (userStore.isMember ? '会员用户' : '游客模式'));
@@ -142,7 +152,7 @@ const statusDescription = computed(() => {
 const goLogin = () => router.push({ name: 'login' });
 const goPlayground = (courseId?: number) => router.push({ name: 'playground', query: courseId ? { courseId } : {} });
 const goMember = () => router.push({ name: 'member-center' });
-const goAdmin = () => router.push({ name: 'admin-members' });
+const goAdmin = () => window.open(adminUrl.value, '_blank', 'noopener');
 
 const filterCourses = () => {
   const word = keyword.value.trim().toLowerCase();
