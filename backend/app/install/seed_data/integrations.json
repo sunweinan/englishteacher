@@ -1,0 +1,22 @@
+[
+  {
+    "provider": "wechat_pay",
+    "label": "微信支付",
+    "is_active": false,
+    "config": {
+      "appId": "",
+      "mchId": "",
+      "apiKey": ""
+    }
+  },
+  {
+    "provider": "sms",
+    "label": "短信服务",
+    "is_active": false,
+    "config": {
+      "provider": "",
+      "apiKey": "",
+      "signName": ""
+    }
+  }
+]

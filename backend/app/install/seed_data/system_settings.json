@@ -1,0 +1,20 @@
+[
+  {
+    "category": "site",
+    "key": "domain",
+    "value": "localhost",
+    "description": "服务器域名"
+  },
+  {
+    "category": "site",
+    "key": "ip",
+    "value": "127.0.0.1",
+    "description": "服务器IP"
+  },
+  {
+    "category": "site",
+    "key": "backend_port",
+    "value": "8001",
+    "description": "后端服务端口"
+  }
+]
