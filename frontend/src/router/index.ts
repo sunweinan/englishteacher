@@ -43,9 +43,9 @@ const routes = [
         component: () => import('@/views/Admin/Dashboard.vue')
       },
       {
-        path: 'members',
-        name: 'admin-members',
-        component: () => import('@/views/Admin/Members.vue')
+        path: 'users',
+        name: 'admin-users',
+        component: () => import('@/views/Admin/Users.vue')
       },
       {
         path: 'payments',
