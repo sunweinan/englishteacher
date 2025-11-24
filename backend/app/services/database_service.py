@@ -102,6 +102,9 @@ def initialize_seed_data(db: Session, *, overwrite_existing: bool = False) -> di
     return {'status': 'ok', 'message': '数据库结构已检查完毕，预置数据同步完成。'}
   except SQLAlchemyError as exc:  # noqa: PERF203
     seed_db.rollback()
-    raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='初始化数据库失败，请检查数据库配置。') from exc
+    raise HTTPException(
+      status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+      detail='初始化数据库失败，请检查数据库配置。'
+    ) from exc
   finally:
     seed_db.close()
