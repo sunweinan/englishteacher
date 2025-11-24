@@ -3,10 +3,14 @@ from typing import Any, Dict
 
 from pydantic import BaseModel
 
-from app.core.install_state import load_install_state
+from app.core.install_state import load_install_state, load_server_config
 
 
 def _install_overrides() -> Dict[str, Any]:
+  server_config = load_server_config()
+  if isinstance(server_config, dict) and server_config:
+    return server_config
+
   state = load_install_state()
   return state.get('config', {}) if isinstance(state, dict) else {}
 

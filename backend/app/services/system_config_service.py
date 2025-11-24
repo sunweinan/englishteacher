@@ -9,19 +9,26 @@ from app.models.system_setting import SystemSetting
 from app.models.integration import IntegrationConfig
 from app.config import settings
 from app.utils.seed_data import PERMISSION_COMMAND, persist_seed_config, SEED_DATA_DIR
-from app.core.install_state import INSTALL_PERMISSION_COMMAND, INSTALL_STATE_PATH, update_install_state
+from app.core.install_state import (
+  INSTALL_PERMISSION_COMMAND,
+  INSTALL_STATE_PATH,
+  SERVER_CONFIG_PATH,
+  load_server_config,
+  save_server_config,
+  update_install_state
+)
 
 DEFAULT_CONFIG = {
-  'server_ip': '10.10.10.8',
-  'domain': 'english.example.com',
-  'login_user': 'root',
-  'login_password': 'Admin@123',
-  'db_host': '127.0.0.1',
+  'server_ip': '',
+  'domain': '',
+  'login_user': '',
+  'login_password': '',
+  'db_host': '',
   'db_port': 3306,
-  'db_name': 'english_db',
-  'db_user': 'english_user',
-  'db_password': 'db_pass_123',
-  'root_password': 'Ad123456',
+  'db_name': '',
+  'db_user': '',
+  'db_password': '',
+  'root_password': '',
   'wechat_app_id': '',
   'wechat_mch_id': '',
   'wechat_api_key': '',
@@ -100,8 +107,30 @@ def _upsert_integration_config(db: Session, provider: str, *, label: str, config
   db.add(IntegrationConfig(**payload))
 
 
-def get_config(db: Session) -> Dict[str, str | int]:
+def _build_defaults_from_server_config() -> Dict[str, str | int]:
   data: Dict[str, str | int] = {**DEFAULT_CONFIG}
+  server_config = load_server_config()
+  site = server_config.get('site', {}) if isinstance(server_config, dict) else {}
+  database = server_config.get('database', {}) if isinstance(server_config, dict) else {}
+
+  if isinstance(site, dict):
+    data['server_ip'] = site.get('ip', data['server_ip'])
+    data['domain'] = site.get('domain', data['domain'])
+  if isinstance(database, dict):
+    data['db_host'] = database.get('host', data['db_host'])
+    data['db_name'] = database.get('name', data['db_name'])
+    data['db_user'] = database.get('user', data['db_user'])
+    data['db_password'] = database.get('password', data['db_password'])
+    data['root_password'] = database.get('root_password', data['root_password'])
+    try:
+      data['db_port'] = int(database.get('port', data['db_port']))
+    except (TypeError, ValueError):
+      pass
+  return data
+
+
+def get_config(db: Session) -> Dict[str, str | int]:
+  data: Dict[str, str | int] = _build_defaults_from_server_config()
   for field, (category, key) in _SETTING_KEYS.items():
     stored = _get_setting(db, category, key)
     if stored is None:
@@ -179,6 +208,7 @@ def save_config(db: Session, payload: Dict[str, str | int]) -> Dict[str, str | i
       'site': {
         'ip': payload.get('server_ip'),
         'domain': payload.get('domain'),
+        'backend_port': settings.site_port,
       }
     })
   except PermissionError as exc:  # noqa: PERF203
@@ -188,6 +218,31 @@ def save_config(db: Session, payload: Dict[str, str | int]) -> Dict[str, str | i
       'code': 'INSTALL_STATE_PERMISSION_DENIED',
       'command': INSTALL_PERMISSION_COMMAND,
       'path': str(INSTALL_STATE_PATH)
+    }) from exc
+
+  try:
+    save_server_config({
+      'site': {
+        'ip': payload.get('server_ip'),
+        'domain': payload.get('domain'),
+        'backend_port': settings.site_port,
+      },
+      'database': {
+        'host': payload.get('db_host'),
+        'port': payload.get('db_port'),
+        'name': payload.get('db_name'),
+        'user': payload.get('db_user'),
+        'password': payload.get('db_password'),
+        'root_password': payload.get('root_password'),
+      }
+    })
+  except PermissionError as exc:  # noqa: PERF203
+    db.rollback()
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={
+      'message': f'写入 server.json 失败，请检查文件权限，或执行：{INSTALL_PERMISSION_COMMAND}',
+      'code': 'INSTALL_STATE_PERMISSION_DENIED',
+      'command': INSTALL_PERMISSION_COMMAND,
+      'path': str(SERVER_CONFIG_PATH)
     }) from exc
 
   db.commit()
