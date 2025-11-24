@@ -7,12 +7,11 @@ from urllib.parse import urlparse
 from fastapi import HTTPException, status
 from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
-from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.orm import Session
 
-from app.core.database import Base
 from app.core.install_state import INSTALL_STATE_PATH, save_install_state
 from app.schemas.install import InstallRequest
-from app.installer import seeder
+from app.installer.database_initializer import create_schema, seed_all
 
 
 class InstallProgressError(HTTPException):
@@ -110,12 +109,6 @@ def _write_server_file(payload: InstallRequest, host: str, port: int) -> None:
     json.dump(data, f, ensure_ascii=False, indent=2)
 
 
-def _init_schema(engine) -> Session:
-  Base.metadata.create_all(bind=engine)
-  SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
-  return SessionLocal()
-
-
 def _assert_root_connection(engine, progress: list[Dict[str, str]]) -> None:
   try:
     with engine.connect():
@@ -160,32 +153,34 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
 
   app_engine = _create_app_engine(host, port, payload.database_user, payload.database_password, payload.database_name)
   try:
-    db = _init_schema(app_engine)
+    SessionLocal = create_schema(app_engine)
   except OperationalError as exc:  # noqa: PERF203
     raise InstallProgressError('init_schema', '业务账号无法连接数据库，请检查账号密码或授权。', progress) from exc
   _record_step('init_schema')
 
+  db: Session = SessionLocal()
   try:
-    seeder.seed_products(db)
-    seeder.seed_users(db, {'username': payload.admin_username, 'password': payload.admin_password})
-    seeder.seed_settings(db, {
+    seed_all(db, admin_payload={'username': payload.admin_username, 'password': payload.admin_password}, settings_overrides={
       'domain': payload.server_domain,
       'ip': payload.server_ip,
       'backend_port': str(payload.backend_port)
-    })
-    seeder.seed_integrations(db, {
-      'app_id': payload.wechat_app_id,
-      'mch_id': payload.wechat_mch_id,
-      'api_key': payload.wechat_api_key
-    }, {
-      'provider': payload.sms_provider,
-      'api_key': payload.sms_api_key,
-      'sign_name': payload.sms_sign_name
+    }, integrations={
+      'wechat': {
+        'app_id': payload.wechat_app_id,
+        'mch_id': payload.wechat_mch_id,
+        'api_key': payload.wechat_api_key
+      },
+      'sms': {
+        'provider': payload.sms_provider,
+        'api_key': payload.sms_api_key,
+        'sign_name': payload.sms_sign_name
+      }
     })
   except PermissionError as exc:  # noqa: PERF203
     raise InstallProgressError('seed_data', '写入数据库时权限不足，请检查账户授权。', progress) from exc
   finally:
     db.close()
+  _record_step('seed_data')
 
   try:
     _persist_install_config(payload, host, port)

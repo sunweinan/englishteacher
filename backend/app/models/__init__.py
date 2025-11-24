@@ -4,6 +4,7 @@ from app.models.order import Order, OrderItem
 from app.models.payment import Payment
 from app.models.system_setting import SystemSetting
 from app.models.integration import IntegrationConfig
+from app.models.membership import AdminDashboardStat, MembershipSetting, RechargeRecord
 
 __all__ = [
   'User',
@@ -12,5 +13,8 @@ __all__ = [
   'OrderItem',
   'Payment',
   'SystemSetting',
-  'IntegrationConfig'
+  'IntegrationConfig',
+  'MembershipSetting',
+  'RechargeRecord',
+  'AdminDashboardStat'
 ]

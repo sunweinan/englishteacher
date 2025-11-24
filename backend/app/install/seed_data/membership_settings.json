@@ -1,0 +1,20 @@
+[
+  {
+    "level": "月卡",
+    "price": 10,
+    "duration_days": 30,
+    "description": "30 天会员，适合短期体验与集中学习。"
+  },
+  {
+    "level": "年卡",
+    "price": 30,
+    "duration_days": 365,
+    "description": "全年畅学，含口语、写作及听力课程。"
+  },
+  {
+    "level": "终身",
+    "price": 40,
+    "duration_days": 0,
+    "description": "永久有效的尊享会员，解锁全部课程与更新。"
+  }
+]
