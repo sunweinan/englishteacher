@@ -55,6 +55,36 @@
       </el-form>
     </el-card>
 
+    <el-card class="card">
+      <h4>微信支付配置</h4>
+      <el-form label-width="140px" class="form">
+        <el-form-item label="微信支付 AppID">
+          <el-input v-model="config.wechatAppId" placeholder="wx1234567890" />
+        </el-form-item>
+        <el-form-item label="微信商户号">
+          <el-input v-model="config.wechatMchId" placeholder="1234567890" />
+        </el-form-item>
+        <el-form-item label="微信 API Key">
+          <el-input v-model="config.wechatApiKey" placeholder="填写商户平台设置的 Key" />
+        </el-form-item>
+      </el-form>
+    </el-card>
+
+    <el-card class="card">
+      <h4>短信服务配置</h4>
+      <el-form label-width="140px" class="form">
+        <el-form-item label="短信服务商">
+          <el-input v-model="config.smsProvider" placeholder="如 aliyun、tencent" />
+        </el-form-item>
+        <el-form-item label="短信 API Key">
+          <el-input v-model="config.smsApiKey" placeholder="短信平台 Access Key" />
+        </el-form-item>
+        <el-form-item label="短信签名">
+          <el-input v-model="config.smsSignName" placeholder="短信签名内容" />
+        </el-form-item>
+      </el-form>
+    </el-card>
+
     <div class="actions">
       <el-button type="primary" @click="save">保存配置</el-button>
       <el-button plain @click="reset">重置未保存更改</el-button>
@@ -96,7 +126,13 @@ const defaultConfig = {
   dbName: 'english_db',
   dbUser: 'english_user',
   dbPassword: 'db_pass_123',
-  rootPassword: 'Ad123456'
+  rootPassword: 'Ad123456',
+  wechatAppId: '',
+  wechatMchId: '',
+  wechatApiKey: '',
+  smsProvider: '',
+  smsApiKey: '',
+  smsSignName: ''
 };
 
 const config = reactive({ ...defaultConfig });
@@ -107,12 +143,12 @@ const loading = ref(false);
 const permissionDialog = reactive({
   visible: false,
   message: '',
-  command: 'chmod -R 775 backend/app/install/seed_data',
+  command: 'chmod -R 775 backend/app/install',
   path: ''
 });
 
 const showPermissionDialog = (detail: any) => {
-  permissionDialog.message = detail?.message || '写入 seed_data 目录失败，请检查文件权限。';
+  permissionDialog.message = detail?.message || '写入配置文件失败，请检查文件权限。';
   permissionDialog.command = detail?.command || permissionDialog.command;
   permissionDialog.path = detail?.path || '';
   permissionDialog.visible = true;
@@ -130,6 +166,12 @@ const applyConfig = (data: Record<string, any>) => {
   merged.dbUser = data.db_user ?? data.dbUser ?? merged.dbUser;
   merged.dbPassword = data.db_password ?? data.dbPassword ?? merged.dbPassword;
   merged.rootPassword = data.root_password ?? data.rootPassword ?? merged.rootPassword;
+  merged.wechatAppId = data.wechat_app_id ?? data.wechatAppId ?? merged.wechatAppId;
+  merged.wechatMchId = data.wechat_mch_id ?? data.wechatMchId ?? merged.wechatMchId;
+  merged.wechatApiKey = data.wechat_api_key ?? data.wechatApiKey ?? merged.wechatApiKey;
+  merged.smsProvider = data.sms_provider ?? data.smsProvider ?? merged.smsProvider;
+  merged.smsApiKey = data.sms_api_key ?? data.smsApiKey ?? merged.smsApiKey;
+  merged.smsSignName = data.sms_sign_name ?? data.smsSignName ?? merged.smsSignName;
   Object.assign(config, merged);
 };
 
@@ -176,7 +218,13 @@ const save = () => {
       db_name: config.dbName,
       db_user: config.dbUser,
       db_password: config.dbPassword,
-      root_password: config.rootPassword
+      root_password: config.rootPassword,
+      wechat_app_id: config.wechatAppId,
+      wechat_mch_id: config.wechatMchId,
+      wechat_api_key: config.wechatApiKey,
+      sms_provider: config.smsProvider,
+      sms_api_key: config.smsApiKey,
+      sms_sign_name: config.smsSignName
     })
     .then((response) => {
       applyConfig(response.data || {});
@@ -185,7 +233,7 @@ const save = () => {
     .catch((error) => {
       console.error(error);
       const detail = error?.response?.data?.detail;
-      if (detail?.code === 'SEED_DATA_PERMISSION_DENIED') {
+      if (detail?.code === 'SEED_DATA_PERMISSION_DENIED' || detail?.code === 'INSTALL_STATE_PERMISSION_DENIED') {
         showPermissionDialog(detail);
         return;
       }
