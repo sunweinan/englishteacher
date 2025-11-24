@@ -29,51 +29,17 @@
 
 <script setup lang="ts">
 import { computed } from 'vue';
+import { adminPreloadData, type MemberLevel, type PaymentRecord } from '@/config/adminPreload';
 
-type Level = '日卡' | '月卡' | '年卡' | '终身';
-
-interface PaymentRow {
-  time: string;
-  user: string;
-  amount: number;
-  level: Level;
-  channel: string;
-  orderNo: string;
-}
-
-const levelColor: Record<Level, 'success' | 'warning' | 'info' | 'danger'> = {
+const levelColor: Record<MemberLevel, 'success' | 'warning' | 'info' | 'danger'> = {
+  游客: 'info',
   日卡: 'info',
   月卡: 'warning',
   年卡: 'success',
   终身: 'danger'
 };
 
-const payments: PaymentRow[] = [
-  {
-    time: '2024-04-08T10:28:00',
-    user: '138****8888',
-    level: '年卡',
-    amount: 30,
-    channel: '微信支付',
-    orderNo: '4200002184202404086620001'
-  },
-  {
-    time: '2024-04-07T22:10:00',
-    user: '139****5566',
-    level: '月卡',
-    amount: 10,
-    channel: '微信支付',
-    orderNo: '4200002184202404079988002'
-  },
-  {
-    time: '2024-04-07T12:02:00',
-    user: '137****1020',
-    level: '终身',
-    amount: 40,
-    channel: '微信支付',
-    orderNo: '4200002184202404073311888'
-  }
-];
+const payments: PaymentRecord[] = adminPreloadData.payments;
 
 const sortedPayments = computed(() => [...payments].sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime()));
 
