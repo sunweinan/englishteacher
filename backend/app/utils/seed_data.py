@@ -25,6 +25,16 @@ def _write_json(path: Path, data: Any) -> None:
     json.dump(data, file, ensure_ascii=False, indent=2)
 
 
+def _settings_entries_to_map(entries: List[Dict[str, Any]]) -> Dict[str, Any]:
+  settings: Dict[str, Any] = {}
+  for entry in entries:
+    category = entry.get('category')
+    key = entry.get('key')
+    if category == 'site' and key:
+      settings[key] = entry.get('value')
+  return settings
+
+
 def _upsert_setting(entries: List[Dict[str, Any]], category: str, key: str, value: Any, description: str) -> None:
   for entry in entries:
     if entry.get('category') == category and entry.get('key') == key:
@@ -39,6 +49,27 @@ def _upsert_setting(entries: List[Dict[str, Any]], category: str, key: str, valu
     'value': '' if value is None else str(value),
     'description': description
   })
+
+
+def load_seed_config(default: Dict[str, Any] | None = None) -> Dict[str, Any]:
+  """Load the latest seed configuration from disk.
+
+  The values come from ``system_config.json`` and ``system_settings.json``. Missing
+  fields fall back to the provided ``default`` dictionary.
+  """
+
+  defaults = default or {}
+  seed_config: Dict[str, Any] = _load_json(SYSTEM_CONFIG_FILE, {})
+  settings_entries: List[Dict[str, Any]] = _load_json(SYSTEM_SETTINGS_FILE, [])
+  site_settings = _settings_entries_to_map(settings_entries)
+
+  merged: Dict[str, Any] = {**defaults, **seed_config}
+  if 'server_ip' not in merged and 'ip' in site_settings:
+    merged['server_ip'] = site_settings['ip']
+  if 'domain' not in merged and 'domain' in site_settings:
+    merged['domain'] = site_settings['domain']
+
+  return merged
 
 
 def persist_seed_config(config: Dict[str, Any], *, backend_port: int) -> None:
