@@ -126,13 +126,6 @@ def _create_database_and_user(root_engine, payload: InstallRequest, host: str) -
     conn.execute(text('FLUSH PRIVILEGES'))
 
 
-def _validate_admin_password(password: str) -> None:
-  """Ensure admin password meets hashing constraints before seeding."""
-
-  if password and len(password.encode('utf-8')) > 72:
-    raise InstallProgressError('管理员密码长度不能超过 72 字节，请修改后再试。')
-
-
 def run_installation(payload: InstallRequest) -> Dict[str, Any]:
   host, port = _resolve_mysql_host_port(payload)
   root_engine = _create_root_engine(host, port, payload.mysql_root_password)
@@ -151,7 +144,6 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
     raise InstallProgressError('业务账号无法连接数据库，请检查账号密码或授权。') from exc
 
   try:
-    _validate_admin_password(payload.admin_password)
     seeder.seed_products(db)
     seeder.seed_users(db, {'username': payload.admin_username, 'password': payload.admin_password})
     seeder.seed_settings(db, {

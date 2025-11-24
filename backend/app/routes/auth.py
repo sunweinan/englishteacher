@@ -18,9 +18,7 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 @router.post('/admin/login', response_model=Token)
 def admin_login(payload: LoginRequest, db: Session = Depends(get_db)):
   user, is_default_admin = auth_service.admin_login(db, payload.username, payload.password)
-  token = auth_service.create_access_token(
-    auth_service.build_token_payload(user, is_default_admin=is_default_admin)
-  )
+  token = auth_service.create_access_token(auth_service.build_token_payload(user))
   return {'access_token': token, 'token_type': 'bearer', 'is_default_admin': is_default_admin}
 
 
