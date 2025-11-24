@@ -7,12 +7,13 @@ export interface DashboardStat {
 export type MemberLevel = '游客' | '日卡' | '月卡' | '年卡' | '终身';
 
 export interface PaymentRecord {
-  time: string;
-  user: string;
+  id: number;
+  user_display: string;
   amount: number;
   level: MemberLevel;
   channel: string;
-  orderNo: string;
+  order_no: string;
+  paid_at: string;
 }
 
 export interface UserProfile {
@@ -20,7 +21,7 @@ export interface UserProfile {
   nickname: string;
   phone: string;
   level: MemberLevel;
-  registerAt: string;
+  register_at: string;
   spend: number;
   tests: number;
   benefits: string;
@@ -29,6 +30,7 @@ export interface UserProfile {
 }
 
 export interface OrderItemInfo {
+  id: number;
   name: string;
   quantity: number;
   price: number;
@@ -39,17 +41,10 @@ export type OrderStatus = '待支付' | '已支付' | '已退款';
 export interface OrderInfo {
   id: string;
   user: string;
-  createdAt: string;
+  created_at: string;
   status: OrderStatus;
   channel: string;
   amount: number;
   items: OrderItemInfo[];
   remark?: string;
 }
-
-export const adminPreloadData = {
-  dashboardStats: [] as DashboardStat[],
-  users: [] as UserProfile[],
-  payments: [] as PaymentRecord[],
-  orders: [] as OrderInfo[]
-};

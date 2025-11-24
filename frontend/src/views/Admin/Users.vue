@@ -16,7 +16,7 @@
           </template>
         </el-input>
         <div class="chips">
-          <el-tag :type="sortKey === 'registerAt' ? 'success' : 'info'" @click="setSort('registerAt')">注册时间</el-tag>
+          <el-tag :type="sortKey === 'register_at' ? 'success' : 'info'" @click="setSort('register_at')">注册时间</el-tag>
           <el-tag :type="sortKey === 'level' ? 'success' : 'info'" @click="setSort('level')">用户等级</el-tag>
           <el-tag :type="sortKey === 'spend' ? 'success' : 'info'" @click="setSort('spend')">消费金额</el-tag>
         </div>
@@ -32,6 +32,7 @@
       style="width: 100%"
       stripe
       highlight-current-row
+      v-loading="loading"
       :default-sort="{ prop: sortKey, order: descending ? 'descending' : 'ascending' }"
     >
       <el-table-column type="index" width="60" label="#" />
@@ -42,9 +43,9 @@
           <el-tag :type="levelColor[row.level]">{{ row.level }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="registerAt" label="注册时间" sortable min-width="180">
+      <el-table-column prop="register_at" label="注册时间" sortable min-width="180">
         <template #default="{ row }">
-          <span>{{ formatDate(row.registerAt) }}</span>
+          <span>{{ formatDate(row.register_at) }}</span>
         </template>
       </el-table-column>
       <el-table-column prop="spend" label="消费金额" sortable min-width="120">
@@ -63,7 +64,7 @@
     <el-drawer v-model="detailVisible" size="520px" :title="activeUser?.nickname || '用户详情'">
       <el-descriptions v-if="activeUser" :column="1" border>
         <el-descriptions-item label="手机号">{{ activeUser.phone }}</el-descriptions-item>
-        <el-descriptions-item label="注册时间">{{ formatDate(activeUser.registerAt, true) }}</el-descriptions-item>
+          <el-descriptions-item label="注册时间">{{ formatDate(activeUser.register_at, true) }}</el-descriptions-item>
         <el-descriptions-item label="会员级别">
           <el-tag :type="levelColor[activeUser.level]">{{ activeUser.level }}</el-tag>
         </el-descriptions-item>
@@ -82,9 +83,11 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { Search, Sort } from '@element-plus/icons-vue';
-import { adminPreloadData, type MemberLevel, type UserProfile } from '@/config/adminPreload';
+import http from '@/utils/http';
+import { API_ENDPOINTS } from '@/config/api';
+import type { MemberLevel, UserProfile } from '@/types/admin';
 
 const levelOrder: Record<MemberLevel, number> = {
   游客: 1,
@@ -102,10 +105,11 @@ const levelColor: Record<MemberLevel, 'info' | 'warning' | 'success' | 'danger'>
   终身: 'danger'
 };
 
-const users = ref<UserProfile[]>([...adminPreloadData.users]);
+const users = ref<UserProfile[]>([]);
+const loading = ref(false);
 
 const keyword = ref('');
-const sortKey = ref<'registerAt' | 'level' | 'spend'>('registerAt');
+const sortKey = ref<'register_at' | 'level' | 'spend'>('register_at');
 const descending = ref(true);
 const detailVisible = ref(false);
 const activeUser = ref<UserProfile | null>(null);
@@ -125,7 +129,7 @@ const sortedUsers = computed(() => {
     if (sortKey.value === 'spend') {
       return a.spend - b.spend;
     }
-    return new Date(a.registerAt).getTime() - new Date(b.registerAt).getTime();
+    return new Date(a.register_at).getTime() - new Date(b.register_at).getTime();
   });
   return descending.value ? list.reverse() : list;
 });
@@ -157,13 +161,25 @@ const setSort = (key: typeof sortKey.value) => {
 };
 
 const resetSort = () => {
-  sortKey.value = 'registerAt';
+  sortKey.value = 'register_at';
   descending.value = true;
 };
 
 const handleSearch = () => {
   // computed handles filtering, this exists to keep template event clean
 };
+
+const fetchUsers = async () => {
+  loading.value = true;
+  try {
+    const { data } = await http.get<UserProfile[]>(API_ENDPOINTS.adminUsers);
+    users.value = data;
+  } finally {
+    loading.value = false;
+  }
+};
+
+onMounted(fetchUsers);
 </script>
 
 <style scoped>

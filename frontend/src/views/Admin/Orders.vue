@@ -8,7 +8,7 @@
       <el-tag type="info">共 {{ orders.length }} 笔</el-tag>
     </header>
 
-    <el-table :data="sortedOrders" style="width: 100%" stripe row-key="id">
+    <el-table :data="sortedOrders" style="width: 100%" stripe row-key="id" v-loading="loading">
       <el-table-column prop="id" label="订单号" min-width="160" />
       <el-table-column prop="user" label="用户" min-width="140" />
       <el-table-column prop="amount" label="订单金额" min-width="120">
@@ -20,8 +20,8 @@
         </template>
       </el-table-column>
       <el-table-column prop="channel" label="渠道" min-width="120" />
-      <el-table-column prop="createdAt" label="创建时间" min-width="180" sortable>
-        <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
+      <el-table-column prop="created_at" label="创建时间" min-width="180" sortable>
+        <template #default="{ row }">{{ formatDate(row.created_at) }}</template>
       </el-table-column>
       <el-table-column label="操作" width="120">
         <template #default="{ row }">
@@ -38,7 +38,7 @@
             <el-tag :type="statusColor[activeOrder.status]">{{ activeOrder.status }}</el-tag>
           </el-descriptions-item>
           <el-descriptions-item label="渠道">{{ activeOrder.channel }}</el-descriptions-item>
-          <el-descriptions-item label="下单时间">{{ formatDate(activeOrder.createdAt, true) }}</el-descriptions-item>
+          <el-descriptions-item label="下单时间">{{ formatDate(activeOrder.created_at, true) }}</el-descriptions-item>
           <el-descriptions-item label="订单金额">¥{{ activeOrder.amount.toFixed(2) }}</el-descriptions-item>
           <el-descriptions-item label="备注" v-if="activeOrder.remark">{{ activeOrder.remark }}</el-descriptions-item>
         </el-descriptions>
@@ -60,8 +60,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue';
-import { adminPreloadData, type OrderInfo, type OrderStatus } from '@/config/adminPreload';
+import { computed, onMounted, ref } from 'vue';
+import http from '@/utils/http';
+import { API_ENDPOINTS } from '@/config/api';
+import type { OrderInfo, OrderStatus } from '@/types/admin';
 
 const statusColor: Record<OrderStatus, 'info' | 'success' | 'danger'> = {
   待支付: 'info',
@@ -69,12 +71,13 @@ const statusColor: Record<OrderStatus, 'info' | 'success' | 'danger'> = {
   已退款: 'danger'
 };
 
-const orders = ref<OrderInfo[]>([...adminPreloadData.orders]);
+const orders = ref<OrderInfo[]>([]);
 const detailVisible = ref(false);
 const activeOrder = ref<OrderInfo | null>(null);
+const loading = ref(false);
 
 const sortedOrders = computed(() =>
-  [...orders.value].sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+  [...orders.value].sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
 );
 
 const formatDate = (val: string, includeTime = false) => {
@@ -93,6 +96,18 @@ const openDetail = (order: OrderInfo) => {
   activeOrder.value = order;
   detailVisible.value = true;
 };
+
+const fetchOrders = async () => {
+  loading.value = true;
+  try {
+    const { data } = await http.get<OrderInfo[]>(API_ENDPOINTS.adminOrders);
+    orders.value = data;
+  } finally {
+    loading.value = false;
+  }
+};
+
+onMounted(fetchOrders);
 </script>
 
 <style scoped>
