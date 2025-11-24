@@ -154,21 +154,23 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { Lock, Monitor, Search, Setting, Loading } from '@element-plus/icons-vue';
-import { courseCards, type CourseCard } from '@/config/courses';
+import { useCoursesStore } from '@/store/courses';
+import type { CourseCard } from '@/types/course';
 import { useUserStore } from '@/store/user';
 
 const router = useRouter();
 const userStore = useUserStore();
+const coursesStore = useCoursesStore();
 const keyword = ref('');
 const listRef = ref<HTMLElement | null>(null);
 const loading = ref(false);
 const page = ref(0);
 const pageSize = 6;
 const visibleCourses = ref<CourseCard[]>([]);
-const filteredCourses = ref<CourseCard[]>(courseCards);
+const filteredCourses = ref<CourseCard[]>([]);
 const hasMore = ref(true);
 const adminEntry = computed(() => '/admin');
 const adminNavigating = ref(false);
@@ -201,28 +203,31 @@ const goAdmin = async () => {
 
 const filterCourses = () => {
   const word = keyword.value.trim().toLowerCase();
-  if (!word) {
-    filteredCourses.value = courseCards;
-  } else {
-    filteredCourses.value = courseCards.filter(
-      (item) =>
-        item.title.toLowerCase().includes(word) ||
-        item.subtitle.toLowerCase().includes(word) ||
-        item.tag.toLowerCase().includes(word)
-    );
-  }
+  const source = coursesStore.courses;
+  filteredCourses.value = !word
+    ? source
+    : source.filter(
+        (item) =>
+          item.title.toLowerCase().includes(word) ||
+          item.subtitle.toLowerCase().includes(word) ||
+          item.tag.toLowerCase().includes(word)
+      );
   resetAndLoad();
 };
 
 const resetAndLoad = () => {
   page.value = 0;
   visibleCourses.value = [];
-  hasMore.value = true;
+  hasMore.value = filteredCourses.value.length > 0;
   loadMore();
 };
 
 const loadMore = () => {
   if (loading.value || !hasMore.value) return;
+  if (!filteredCourses.value.length) {
+    hasMore.value = false;
+    return;
+  }
   loading.value = true;
   const start = page.value * pageSize;
   const next = filteredCourses.value.slice(start, start + pageSize);
@@ -242,8 +247,23 @@ const handleScroll = () => {
   }
 };
 
+watch(
+  () => coursesStore.courses,
+  () => {
+    if (keyword.value.trim()) {
+      filterCourses();
+    } else {
+      filteredCourses.value = coursesStore.courses;
+      resetAndLoad();
+    }
+  }
+);
+
 onMounted(() => {
-  resetAndLoad();
+  coursesStore.fetchCourses().then(() => {
+    filteredCourses.value = coursesStore.courses;
+    resetAndLoad();
+  });
   window.addEventListener('scroll', handleScroll, { passive: true });
 });
 

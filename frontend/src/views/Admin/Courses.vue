@@ -8,7 +8,7 @@
       <el-button type="primary" :icon="Plus" @click="createCourse">新增课程盒子</el-button>
     </header>
 
-    <el-card class="add-bar">
+    <el-card class="add-bar" v-loading="loading">
       <el-input v-model="newCourse.title" placeholder="课程标题" class="field" />
       <el-input v-model="newCourse.subtitle" placeholder="课程副标题" class="field" />
       <el-input v-model="newCourse.tag" placeholder="标签" class="field small" />
@@ -24,12 +24,12 @@
       <el-button type="primary" plain :icon="Check" @click="saveNewCourse">保存</el-button>
     </el-card>
 
-    <el-table :data="courses" row-key="id" stripe style="width: 100%">
+    <el-table :data="courses" row-key="id" stripe style="width: 100%" v-loading="loading">
       <el-table-column prop="id" label="ID" width="60" />
       <el-table-column prop="title" label="标题" min-width="180" />
       <el-table-column prop="subtitle" label="副标题" min-width="220" />
-      <el-table-column prop="createdAt" label="添加时间" min-width="140">
-        <template #default="{ row }">{{ formatDate(row.createdAt) }}</template>
+      <el-table-column label="句子数" width="120">
+        <template #default="{ row }">{{ row.lessons.length }}</template>
       </el-table-column>
       <el-table-column label="封面" width="120">
         <template #default="{ row }">
@@ -116,70 +116,82 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 import { Check, Plus, Upload } from '@element-plus/icons-vue';
 import { ElMessage, ElMessageBox, type UploadRequestOptions } from 'element-plus';
-import { courseCards, type CourseCard, type Lesson } from '@/config/courses';
+import http from '@/utils/http';
+import { API_ENDPOINTS } from '@/config/api';
+import { useCoursesStore } from '@/store/courses';
+import type { CourseCard, Lesson } from '@/types/course';
 
-interface EditableCourse extends CourseCard {
-  createdAt: string;
-}
+type EditableCourse = CourseCard;
 
-const adminPassword = 'admin123';
-
-const toEditable = (items: CourseCard[]): EditableCourse[] =>
-  items.map((item, index) => ({
-    ...item,
-    createdAt: new Date(Date.now() - index * 36_00_000).toISOString()
-  }));
-
-const courses = ref<EditableCourse[]>(toEditable(courseCards));
+const coursesStore = useCoursesStore();
+const courses = ref<EditableCourse[]>([]);
 const detailVisible = ref(false);
 const activeCourse = ref<EditableCourse | null>(null);
 const newLesson = reactive<Lesson>({ zh: '', en: '', phonetic: '', audio: '' });
+const loading = ref(false);
 
 const newCourse = reactive<Partial<EditableCourse>>({
   title: '',
   subtitle: '',
   tag: '自定义',
   image: '',
-  lessons: [],
-  createdAt: new Date().toISOString()
+  lessons: []
 });
 
-const formatDate = (val: string) => new Date(val).toLocaleString();
+const syncCourses = () => {
+  courses.value = coursesStore.courses.map((course) => ({
+    ...course,
+    lessons: course.lessons.map((lesson) => ({ ...lesson }))
+  }));
+};
+
+const loadCourses = async () => {
+  loading.value = true;
+  try {
+    await coursesStore.fetchCourses(true);
+    syncCourses();
+  } finally {
+    loading.value = false;
+  }
+};
+
+const resetNewCourse = () => {
+  newCourse.title = '';
+  newCourse.subtitle = '';
+  newCourse.tag = '自定义';
+  newCourse.image = '';
+  newCourse.lessons = [];
+};
 
 const createCourse = () => {
-  newCourse.title = `新课程 ${courses.value.length + 1}`;
-  newCourse.subtitle = '请填写副标题';
-  newCourse.lessons = [];
-  newCourse.image = '';
-  newCourse.createdAt = new Date().toISOString();
+  newCourse.title = newCourse.title || `新课程 ${courses.value.length + 1}`;
+  newCourse.subtitle = newCourse.subtitle || '请填写副标题';
   ElMessage.info('请在上方补充标题/副标题/图片后点击保存');
 };
 
-const saveNewCourse = () => {
+const saveNewCourse = async () => {
   if (!newCourse.title || !newCourse.subtitle) {
     ElMessage.warning('请填写标题和副标题');
     return;
   }
-  const maxId = courses.value.reduce((acc, cur) => Math.max(acc, cur.id), 0);
-  const payload: EditableCourse = {
-    id: maxId + 1,
-    title: newCourse.title,
-    subtitle: newCourse.subtitle,
-    tag: newCourse.tag || '自定义',
-    image:
-      newCourse.image ||
-      'https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=1200&q=80',
-    lessons: (newCourse.lessons as Lesson[]) || [],
-    createdAt: newCourse.createdAt || new Date().toISOString()
-  };
-  courses.value.unshift(payload);
-  ElMessage.success('新课程已加入列表（待同步数据库）');
-  newCourse.title = '';
-  newCourse.subtitle = '';
-  newCourse.image = '';
+  loading.value = true;
+  try {
+    await http.post(API_ENDPOINTS.adminCourses, {
+      title: newCourse.title,
+      subtitle: newCourse.subtitle,
+      tag: newCourse.tag || '自定义',
+      image: newCourse.image || '',
+      lessons: (newCourse.lessons as Lesson[]) || []
+    });
+    ElMessage.success('新课程已加入数据库');
+    resetNewCourse();
+    await loadCourses();
+  } finally {
+    loading.value = false;
+  }
 };
 
 const openDetail = (course: EditableCourse) => {
@@ -187,14 +199,28 @@ const openDetail = (course: EditableCourse) => {
   detailVisible.value = true;
 };
 
-const saveActiveCourse = () => {
+const saveActiveCourse = async () => {
   if (!activeCourse.value) return;
-  const index = courses.value.findIndex((c) => c.id === activeCourse.value?.id);
-  if (index !== -1) {
-    courses.value[index] = JSON.parse(JSON.stringify(activeCourse.value));
-    ElMessage.success('课程内容已保存，等待同步到数据库');
+  loading.value = true;
+  try {
+    await http.put(API_ENDPOINTS.adminCourseDetail(activeCourse.value.id), {
+      title: activeCourse.value.title,
+      subtitle: activeCourse.value.subtitle,
+      tag: activeCourse.value.tag,
+      image: activeCourse.value.image,
+      lessons: activeCourse.value.lessons.map((lesson) => ({
+        zh: lesson.zh,
+        en: lesson.en,
+        phonetic: lesson.phonetic,
+        audio: lesson.audio
+      }))
+    });
+    ElMessage.success('课程内容已保存到数据库');
+    detailVisible.value = false;
+    await loadCourses();
+  } finally {
+    loading.value = false;
   }
-  detailVisible.value = false;
 };
 
 const appendLesson = () => {
@@ -212,16 +238,20 @@ const appendLesson = () => {
 };
 
 const confirmDelete = (course: EditableCourse) => {
-  ElMessageBox.prompt('请输入当前登录密码以确认删除该课程', '删除课程', {
+  ElMessageBox.confirm('确定删除该课程吗？', '删除课程', {
+    type: 'warning',
     confirmButtonText: '删除',
-    cancelButtonText: '取消',
-    inputType: 'password',
-    inputPlaceholder: '后台登录密码',
-    inputValidator: (value) => value === adminPassword || '密码错误，无法删除'
+    cancelButtonText: '取消'
   })
-    .then(() => {
-      courses.value = courses.value.filter((item) => item.id !== course.id);
-      ElMessage.success('课程已删除');
+    .then(async () => {
+      loading.value = true;
+      try {
+        await http.delete(API_ENDPOINTS.adminCourseDetail(course.id));
+        ElMessage.success('课程已删除');
+        await loadCourses();
+      } finally {
+        loading.value = false;
+      }
     })
     .catch(() => {});
 };
@@ -238,19 +268,21 @@ const handleUpload = (options: UploadRequestOptions) => {
   reader.onerror = () => {
     options.onError?.(new Error('上传失败'));
   };
-  reader.readAsDataURL(options.file);
+  reader.readAsDataURL(options.file as File);
 };
 
 const handleNewUpload = (options: UploadRequestOptions) => {
   const reader = new FileReader();
   reader.onload = () => {
-    newCourse.image = String(reader.result || '');
-    ElMessage.success('已更新新课程封面');
+    newCourse.image = String(reader.result);
+    ElMessage.success('封面上传成功');
     options.onSuccess?.({}, options.file);
   };
   reader.onerror = () => options.onError?.(new Error('上传失败'));
-  reader.readAsDataURL(options.file);
+  reader.readAsDataURL(options.file as File);
 };
+
+onMounted(loadCourses);
 </script>
 
 <style scoped>

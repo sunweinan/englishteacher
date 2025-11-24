@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field, field_validator
+from datetime import datetime
+
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class DatabaseTestRequest(BaseModel):
@@ -50,3 +52,60 @@ class SystemConfigUpdate(SystemConfig):
     if not str(value).strip():
       raise ValueError('字段不能为空')
     return value
+
+
+class DashboardStat(BaseModel):
+  label: str
+  value: str
+  note: str
+
+  model_config = ConfigDict(from_attributes=True)
+
+
+class AdminUserProfileOut(BaseModel):
+  id: int
+  nickname: str
+  phone: str
+  level: str
+  register_at: datetime
+  spend: float
+  tests: int
+  benefits: str
+  recharges: list[str] = []
+  note: str | None = None
+
+  model_config = ConfigDict(from_attributes=True)
+
+
+class AdminPaymentRecord(BaseModel):
+  id: int
+  user_display: str
+  level: str
+  amount: float
+  channel: str
+  order_no: str
+  paid_at: datetime
+
+  model_config = ConfigDict(from_attributes=True)
+
+
+class AdminOrderItemOut(BaseModel):
+  id: int
+  name: str
+  quantity: int
+  price: float
+
+  model_config = ConfigDict(from_attributes=True)
+
+
+class AdminOrderOut(BaseModel):
+  id: str
+  user: str
+  created_at: datetime
+  status: str
+  channel: str
+  amount: float
+  remark: str | None = None
+  items: list[AdminOrderItemOut] = []
+
+  model_config = ConfigDict(from_attributes=True)

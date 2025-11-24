@@ -93,14 +93,19 @@
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 import { ElMessage } from 'element-plus';
 import { useRoute, useRouter } from 'vue-router';
-import { courseCards } from '@/config/courses';
+import { useCoursesStore } from '@/store/courses';
+import type { Lesson } from '@/types/course';
 import { useUserStore } from '@/store/user';
 
 const userStore = useUserStore();
+const coursesStore = useCoursesStore();
 const route = useRoute();
 const router = useRouter();
 const courseId = computed(() => Number(route.query.courseId));
-const lessons = computed(() => courseCards.find((c) => c.id === courseId.value)?.lessons || courseCards[0].lessons);
+const lessons = computed<Lesson[]>(() => {
+  const course = coursesStore.courseById(courseId.value) || coursesStore.courses[0];
+  return course?.lessons || [];
+});
 
 const goHome = () => router.push({ name: 'home' });
 
@@ -122,8 +127,8 @@ const plans = [
   { id: 'lifetime', label: '终身', price: 40, desc: '￥40 / 终身' }
 ];
 
-const currentLesson = computed(() => lessons.value[currentIndex.value]);
-const currentWords = computed(() => currentLesson.value.en.split(' '));
+const currentLesson = computed<Lesson>(() => lessons.value[currentIndex.value] || { zh: '', en: '', phonetic: '', audio: '' });
+const currentWords = computed(() => (currentLesson.value.en ? currentLesson.value.en.split(' ') : []));
 
 const initInputs = () => {
   inputs.value = currentWords.value.map(() => '');
@@ -387,6 +392,18 @@ const pay = () => {
   showRecharge.value = false;
 };
 const handleGlobalShortcut = (event: KeyboardEvent) => {
+  if (event.key === 'Enter' && document.activeElement instanceof HTMLInputElement) {
+    event.preventDefault();
+    handleSpaceJudge(activeIndex.value);
+  }
+  if (event.key === 'ArrowRight') {
+    event.preventDefault();
+    next();
+  }
+  if (event.key === 'ArrowLeft') {
+    event.preventDefault();
+    prev();
+  }
   if (event.key === '1') {
     event.preventDefault();
     speak(currentLesson.value.zh);
@@ -402,18 +419,21 @@ const handleGlobalShortcut = (event: KeyboardEvent) => {
   }
 };
 
-watch(
-  currentWords,
-  async () => {
-    initInputs();
-    await nextTick();
-    focusIndex(0);
-    await speakSequence();
-  },
-  { immediate: true }
-);
+const refreshLessons = async () => {
+  if (!lessons.value.length) {
+    inputs.value = [];
+    return;
+  }
+  initInputs();
+  await nextTick();
+  focusIndex(0);
+  await speakSequence();
+};
 
-onMounted(() => {
+watch(lessons, refreshLessons);
+
+onMounted(async () => {
+  await coursesStore.fetchCourses();
   window.addEventListener('keydown', handleGlobalShortcut);
 });
 

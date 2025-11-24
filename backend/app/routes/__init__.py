@@ -1,3 +1,3 @@
-from app.routes import auth, products, orders, payments, admin, install
+from app.routes import admin, auth, courses, install, orders, payments, products
 
-__all__ = ['auth', 'products', 'orders', 'payments', 'admin', 'install']
+__all__ = ['auth', 'products', 'orders', 'payments', 'admin', 'install', 'courses']
