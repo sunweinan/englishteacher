@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from typing import Any, Dict, Tuple
 from urllib.parse import urlparse
 
@@ -9,7 +8,7 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from app.core.install_state import INSTALL_STATE_PATH, save_install_state
+from app.core.install_state import INSTALL_STATE_PATH, save_install_state, save_server_config
 from app.schemas.install import InstallRequest
 from app.installer.database_initializer import create_schema, seed_all
 from app.utils.seed_data import PERMISSION_COMMAND, SEED_DATA_DIR, persist_seed_config
@@ -104,17 +103,21 @@ def _persist_install_config(payload: InstallRequest, host: str, port: int) -> No
 
 
 def _write_server_file(payload: InstallRequest, host: str, port: int) -> None:
-  INSTALL_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
-  server_file = INSTALL_STATE_PATH.parent / 'server.json'
-  data = {
-    'server_domain': payload.server_domain,
-    'server_ip': payload.server_ip,
-    'backend_port': payload.backend_port,
-    'mysql_host': host,
-    'mysql_port': port
-  }
-  with server_file.open('w', encoding='utf-8') as f:
-    json.dump(data, f, ensure_ascii=False, indent=2)
+  save_server_config({
+    'site': {
+      'domain': payload.server_domain,
+      'ip': payload.server_ip,
+      'backend_port': payload.backend_port
+    },
+    'database': {
+      'host': host,
+      'port': port,
+      'name': payload.database_name,
+      'user': payload.database_user,
+      'password': payload.database_password,
+      'root_password': payload.mysql_root_password
+    }
+  })
 
 
 def _persist_seed_files(payload: InstallRequest, host: str, port: int) -> None:

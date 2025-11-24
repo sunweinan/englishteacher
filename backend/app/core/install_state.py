@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Any, Dict
 
 INSTALL_STATE_PATH = Path(__file__).resolve().parent.parent / 'install' / 'state' / 'installation.json'
+SERVER_CONFIG_PATH = INSTALL_STATE_PATH.parent / 'server.json'
 INSTALL_PERMISSION_COMMAND = 'chmod -R 775 backend/app/install/state'
 INSTALL_STATE_DIR = INSTALL_STATE_PATH.parent
 
@@ -23,10 +24,26 @@ def load_install_state() -> Dict[str, Any]:
   return {}
 
 
+def load_server_config() -> Dict[str, Any]:
+  try:
+    if SERVER_CONFIG_PATH.exists():
+      with SERVER_CONFIG_PATH.open('r', encoding='utf-8') as f:
+        return json.load(f)
+  except Exception:
+    return {}
+  return {}
+
+
 def save_install_state(state: Dict[str, Any]) -> None:
   ensure_install_state_dir()
   with INSTALL_STATE_PATH.open('w', encoding='utf-8') as f:
     json.dump(state, f, ensure_ascii=False, indent=2)
+
+
+def save_server_config(config: Dict[str, Any]) -> None:
+  ensure_install_state_dir()
+  with SERVER_CONFIG_PATH.open('w', encoding='utf-8') as f:
+    json.dump(config, f, ensure_ascii=False, indent=2)
 
 
 def update_install_state(config_updates: Dict[str, Any]) -> Dict[str, Any]:
