@@ -19,9 +19,13 @@
       />
 
       <el-steps :active="activeStep" finish-status="success" align-center class="mb-16">
-        <el-step title="环境检查" description="校验 MySQL 连接" />
-        <el-step title="写入配置" description="保存服务器与数据库信息" />
-        <el-step title="初始化数据" description="建库建表并导入预置数据" />
+        <el-step
+          v-for="step in stepItems"
+          :key="step.key"
+          :title="step.title"
+          :description="step.description"
+          :status="stepStatuses[step.key]"
+        />
       </el-steps>
 
       <el-form :model="form" label-width="160px" :disabled="loading">
@@ -124,6 +128,24 @@ const resultDialog = ref(false);
 const resultMessage = ref('');
 const status = reactive({ connected: false, installed: false });
 
+const stepItems = [
+  { key: 'connect_root', title: '登录 MySQL root', description: '校验 MySQL root 连接' },
+  { key: 'provision_db', title: '创建数据库', description: '创建数据库与业务账号' },
+  { key: 'init_schema', title: '初始化表结构', description: '创建表结构与基础信息' },
+  { key: 'seed_data', title: '导入数据', description: '写入管理员与预置数据' },
+  { key: 'write_config', title: '保存配置', description: '写入服务器与集成配置' }
+] as const;
+
+type StepKey = (typeof stepItems)[number]['key'];
+type StepStatus = 'wait' | 'process' | 'success' | 'error';
+
+const stepStatuses = reactive<Record<StepKey, StepStatus>>(
+  stepItems.reduce((acc, item, index) => {
+    acc[item.key] = index === 0 ? 'process' : 'wait';
+    return acc;
+  }, {} as Record<StepKey, StepStatus>)
+);
+
 const form = reactive({
   serverDomain: window.location.hostname,
   serverIp: '127.0.0.1',
@@ -145,9 +167,39 @@ const form = reactive({
   smsSignName: ''
 });
 
-const updateStep = (value: number, text: string) => {
-  activeStep.value = value;
-  statusText.value = text;
+const resetSteps = () => {
+  stepItems.forEach((item, index) => {
+    stepStatuses[item.key] = index === 0 ? 'process' : 'wait';
+  });
+  activeStep.value = 0;
+  progress.value = 0;
+};
+
+const syncProgressFromSteps = () => {
+  const total = stepItems.length;
+  const completed = stepItems.filter((step) => stepStatuses[step.key] === 'success').length;
+  const hasProcessing = stepItems.some((step) => stepStatuses[step.key] === 'process');
+  const percent = Math.min(100, Math.round(((completed + (hasProcessing ? 0.5 : 0)) / total) * 100));
+  progress.value = Math.max(progress.value, percent);
+};
+
+const applyProgressLog = (log: Array<{ step: StepKey; label?: string }> = [], failedStep?: StepKey) => {
+  resetSteps();
+  log.forEach((entry) => {
+    if (entry.step in stepStatuses) {
+      stepStatuses[entry.step] = 'success';
+    }
+  });
+
+  if (failedStep && failedStep in stepStatuses) {
+    stepStatuses[failedStep] = 'error';
+    activeStep.value = stepItems.findIndex((item) => item.key === failedStep);
+  } else {
+    const nextPendingIndex = stepItems.findIndex((item) => stepStatuses[item.key] !== 'success');
+    activeStep.value = nextPendingIndex === -1 ? stepItems.length - 1 : Math.max(nextPendingIndex - 1, 0);
+  }
+
+  syncProgressFromSteps();
 };
 
 const loadStatus = async () => {
@@ -191,24 +243,38 @@ const handleSubmit = async () => {
     ElMessage.error('请填写 MySQL root 密码后继续。');
     return;
   }
+  resetSteps();
   loading.value = true;
-  progress.value = 10;
+  statusText.value = stepItems[0].title;
   progressStatus.value = '';
-  updateStep(0, '正在校验 MySQL root 连接...');
+  syncProgressFromSteps();
   try {
     const { data } = await runInstallation(buildPayload());
-    progress.value = 100;
-    updateStep(2, '安装完成');
+    applyProgressLog((data as any)?.progress || stepItems.map((item) => ({ step: item.key })));
     progressStatus.value = 'success';
+    statusText.value = '安装完成';
     resultMessage.value = data.message;
     resultDialog.value = true;
   } catch (error: any) {
     progressStatus.value = 'exception';
-    progress.value = Math.max(progress.value, 60);
-    const detail = error?.response?.data?.detail || error.message || '安装失败，请稍后重试。';
-    statusText.value = detail;
-    ElMessage.error(detail);
-    await ElMessageBox.alert(detail, '安装失败', { type: 'error' });
+    const detail = error?.response?.data?.detail;
+    const failedStep = (typeof detail === 'object' && detail?.step) as StepKey | undefined;
+    const progressLog = (typeof detail === 'object' && detail?.progress) || [];
+    const message =
+      (typeof detail === 'object' && detail?.message) ||
+      (typeof detail === 'string' ? detail : '') ||
+      error.message ||
+      '安装失败，请稍后重试。';
+
+    if (progressLog.length || failedStep) {
+      applyProgressLog(progressLog as Array<{ step: StepKey; label?: string }>, failedStep);
+    } else {
+      progress.value = Math.max(progress.value, 60);
+    }
+
+    statusText.value = message;
+    ElMessage.error(message);
+    await ElMessageBox.alert(message, '安装失败', { type: 'error' });
   } finally {
     loading.value = false;
   }

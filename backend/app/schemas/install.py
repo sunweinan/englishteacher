@@ -34,7 +34,13 @@ class InstallRequest(BaseModel):
   sms_sign_name: str | None = None
 
 
+class InstallStep(BaseModel):
+  step: str
+  label: str
+
+
 class InstallResult(BaseModel):
   success: bool = True
   message: str
   next_url: str
+  progress: list[InstallStep] | None = None

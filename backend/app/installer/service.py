@@ -16,8 +16,12 @@ from app.installer import seeder
 
 
 class InstallProgressError(HTTPException):
-  def __init__(self, message: str, status_code: int = status.HTTP_400_BAD_REQUEST):
-    super().__init__(status_code=status_code, detail=message)
+  def __init__(self, step: str, message: str, progress: list[Dict[str, str]] | None = None,
+               status_code: int = status.HTTP_400_BAD_REQUEST):
+    detail: Dict[str, Any] = {'step': step, 'message': message}
+    if progress is not None:
+      detail['progress'] = progress
+    super().__init__(status_code=status_code, detail=detail)
 
 
 def _resolve_mysql_host_port(payload: InstallRequest) -> Tuple[str, int]:
@@ -35,7 +39,16 @@ def _create_root_engine(host: str, port: int, root_password: str):
     echo=False,
     future=True,
     isolation_level='AUTOCOMMIT'
-  )
+)
+
+
+STEP_LABELS = {
+  'connect_root': '登录 MySQL root',
+  'provision_db': '创建数据库和账号',
+  'init_schema': '初始化表结构',
+  'seed_data': '写入预置数据',
+  'write_config': '写入配置文件'
+}
 
 
 def _create_app_engine(host: str, port: int, user: str, password: str, db_name: str):
@@ -103,7 +116,7 @@ def _init_schema(engine) -> Session:
   return SessionLocal()
 
 
-def _assert_root_connection(engine) -> None:
+def _assert_root_connection(engine, progress: list[Dict[str, str]]) -> None:
   try:
     with engine.connect():
       return
@@ -111,7 +124,7 @@ def _assert_root_connection(engine) -> None:
     message = '无法连接到 MySQL，请确认主机和 root 密码是否正确。'
     if 'Access denied' in str(exc.orig):
       message = 'root 密码错误，无法连接 MySQL。'
-    raise InstallProgressError(message) from exc
+    raise InstallProgressError('connect_root', message, progress) from exc
 
 
 def _create_database_and_user(root_engine, payload: InstallRequest, host: str) -> None:
@@ -127,21 +140,30 @@ def _create_database_and_user(root_engine, payload: InstallRequest, host: str) -
 
 
 def run_installation(payload: InstallRequest) -> Dict[str, Any]:
+  progress: list[Dict[str, str]] = []
+
+  def _record_step(step: str) -> None:
+    if step in STEP_LABELS:
+      progress.append({'step': step, 'label': STEP_LABELS[step]})
+
   host, port = _resolve_mysql_host_port(payload)
   root_engine = _create_root_engine(host, port, payload.mysql_root_password)
-  _assert_root_connection(root_engine)
+  _assert_root_connection(root_engine, progress)
+  _record_step('connect_root')
 
   try:
     _create_database_and_user(root_engine, payload, host)
   except OperationalError as exc:  # noqa: PERF203
     message = '创建数据库或账号失败，请确认 root 权限。'
-    raise InstallProgressError(message) from exc
+    raise InstallProgressError('provision_db', message, progress) from exc
+  _record_step('provision_db')
 
   app_engine = _create_app_engine(host, port, payload.database_user, payload.database_password, payload.database_name)
   try:
     db = _init_schema(app_engine)
   except OperationalError as exc:  # noqa: PERF203
-    raise InstallProgressError('业务账号无法连接数据库，请检查账号密码或授权。') from exc
+    raise InstallProgressError('init_schema', '业务账号无法连接数据库，请检查账号密码或授权。', progress) from exc
+  _record_step('init_schema')
 
   try:
     seeder.seed_products(db)
@@ -161,7 +183,7 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
       'sign_name': payload.sms_sign_name
     })
   except PermissionError as exc:  # noqa: PERF203
-    raise InstallProgressError('写入数据库时权限不足，请检查账户授权。') from exc
+    raise InstallProgressError('seed_data', '写入数据库时权限不足，请检查账户授权。', progress) from exc
   finally:
     db.close()
 
@@ -169,12 +191,14 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
     _persist_install_config(payload, host, port)
     _write_server_file(payload, host, port)
   except PermissionError as exc:  # noqa: PERF203
-    raise InstallProgressError('写入配置文件失败，请检查目录读写权限。') from exc
+    raise InstallProgressError('write_config', '写入配置文件失败，请检查目录读写权限。', progress) from exc
+  _record_step('write_config')
 
   return {
     'success': True,
     'message': '安装完成，配置和预置数据已写入。',
-    'next_url': '/admin/login'
+    'next_url': '/admin/login',
+    'progress': progress
   }
 
 
