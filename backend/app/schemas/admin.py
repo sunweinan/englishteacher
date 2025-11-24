@@ -35,6 +35,12 @@ class SystemConfig(BaseModel):
   db_user: str
   db_password: str
   root_password: str
+  wechat_app_id: str | None = None
+  wechat_mch_id: str | None = None
+  wechat_api_key: str | None = None
+  sms_provider: str | None = None
+  sms_api_key: str | None = None
+  sms_sign_name: str | None = None
 
 
 class SystemConfigUpdate(SystemConfig):
