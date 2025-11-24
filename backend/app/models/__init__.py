@@ -5,6 +5,7 @@ from app.models.payment import Payment
 from app.models.system_setting import SystemSetting
 from app.models.integration import IntegrationConfig
 from app.models.membership import AdminDashboardStat, MembershipSetting, RechargeRecord
+from app.models.admin import AdminOrder, AdminOrderItem, AdminUserProfile, Course, CourseLesson
 
 __all__ = [
   'User',
@@ -16,5 +17,10 @@ __all__ = [
   'IntegrationConfig',
   'MembershipSetting',
   'RechargeRecord',
-  'AdminDashboardStat'
+  'AdminDashboardStat',
+  'AdminOrder',
+  'AdminOrderItem',
+  'AdminUserProfile',
+  'Course',
+  'CourseLesson'
 ]
