@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routes import auth, products, orders, payments, admin
+from app.routes import auth, products, orders, payments, admin, install
 from app.core.database import init_db
 from app.core.exceptions import add_exception_handlers
 
@@ -15,7 +15,14 @@ def create_app() -> FastAPI:
     allow_methods=['*'],
     allow_headers=['*']
   )
-  init_db()
+  try:
+    init_db()
+    app.state.db_ready = True
+  except Exception as exc:  # noqa: BLE001
+    app.state.db_ready = False
+    app.state.db_error = str(exc)
+
+  app.include_router(install.router)
   app.include_router(auth.router, prefix='/auth', tags=['auth'])
   app.include_router(products.router, prefix='/products', tags=['products'])
   app.include_router(orders.router, prefix='/orders', tags=['orders'])

@@ -15,7 +15,9 @@ export const API_ENDPOINTS = {
   productDetail: (id: number | string) => `/products/${id}`,
   wechatConfig: '/payments/wechat/config',
   wechatOrder: '/payments/wechat',
-  adminDatabaseTest: '/admin/database/test'
+  adminDatabaseTest: '/admin/database/test',
+  installStatus: '/install/status',
+  installRun: '/install/run'
 };
 
 export function getApiEnvironment(): ApiEnvironment {
