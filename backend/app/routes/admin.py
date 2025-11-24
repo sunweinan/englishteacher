@@ -2,9 +2,11 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.user import UserOut
+from app.schemas.admin import DatabaseTestRequest, DatabaseTestResult
 from app.schemas.product import ProductOut, ProductCreate
 from app.schemas.order import OrderOut
 from app.services import auth_service, product_service, order_service
+import app.services.database_service as database_service
 from app.models.user import User
 
 router = APIRouter(dependencies=[Depends(auth_service.get_current_admin)])
@@ -44,3 +46,8 @@ def admin_orders(db: Session = Depends(get_db)):
 @router.get('/orders/{order_id}', response_model=OrderOut)
 def admin_order_detail(order_id: int, db: Session = Depends(get_db)):
   return order_service.get_order(db, order_id)
+
+
+@router.post('/database/test', response_model=DatabaseTestResult)
+def admin_test_database(payload: DatabaseTestRequest):
+  return database_service.test_mysql_connection(payload)
