@@ -35,7 +35,7 @@ const routes = [
   {
     path: '/admin',
     component: () => import('@/views/Admin/Layout.vue'),
-    meta: { requiresAuth: true, role: 'admin' },
+    meta: { requiresAuth: true },
     children: [
       {
         path: '',
@@ -82,18 +82,14 @@ const checkAuth = (to: RouteLocationNormalized, next: NavigationGuardNext) => {
 
 const checkRole = (to: RouteLocationNormalized, next: NavigationGuardNext) => {
   const userStore = useUserStore();
-  if (to.meta.role && userStore.role !== to.meta.role) {
-    next({ name: 'home' });
-    return false;
-  }
+  // TODO: add role-based access control rules when backend roles are available
   return true;
 };
 
 router.beforeEach((to, _from, next) => {
   const authed = checkAuth(to, next);
   if (!authed) return;
-  const roleOk = checkRole(to, next);
-  if (!roleOk) return;
+  checkRole(to, next);
   next();
 });
 
