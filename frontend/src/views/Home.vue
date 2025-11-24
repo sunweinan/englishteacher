@@ -15,10 +15,12 @@
           plain
           size="large"
           :title="`进入后台：${adminEntry}`"
+          :loading="adminNavigating"
           @click="goAdmin"
         >
           后台
         </el-button>
+        <span v-if="adminTargetUrl" class="admin-url">{{ adminTargetUrl }}</span>
         <el-button
           v-if="!userStore.isAuthenticated"
           type="primary"
@@ -92,10 +94,11 @@
           <p class="desc">管理课程、会员、支付与系统设置，支持随时切换到运营后台。</p>
           <div class="admin-actions">
             <el-tag type="info" effect="dark">{{ adminEntry }}</el-tag>
-            <el-button type="primary" size="large" @click="goAdmin">
+            <el-button type="primary" size="large" :loading="adminNavigating" @click="goAdmin">
               <el-icon class="mr-6"><Setting /></el-icon>
               进入后台
             </el-button>
+            <span v-if="adminTargetUrl" class="admin-url">{{ adminTargetUrl }}</span>
           </div>
         </div>
         <div class="admin-meta">
@@ -168,6 +171,8 @@ const visibleCourses = ref<CourseCard[]>([]);
 const filteredCourses = ref<CourseCard[]>(courseCards);
 const hasMore = ref(true);
 const adminEntry = computed(() => '/admin');
+const adminNavigating = ref(false);
+const adminTargetUrl = ref('');
 
 const statusLabel = computed(() => (userStore.isAuthenticated ? '已登录' : '未登录'));
 const membershipLabel = computed(() => (userStore.isMember ? '会员用户' : '游客模式'));
@@ -182,7 +187,17 @@ const statusDescription = computed(() => {
 const goLogin = () => router.push({ name: 'login' });
 const goPlayground = (courseId?: number) => router.push({ name: 'playground', query: courseId ? { courseId } : {} });
 const goMember = () => router.push({ name: 'member-center' });
-const goAdmin = () => router.push({ name: 'admin-dashboard' });
+const goAdmin = async () => {
+  if (adminNavigating.value) return;
+  adminNavigating.value = true;
+  const target = router.resolve({ name: 'admin-dashboard' });
+  adminTargetUrl.value = target.href;
+  try {
+    await router.push(target);
+  } finally {
+    adminNavigating.value = false;
+  }
+};
 
 const filterCourses = () => {
   const word = keyword.value.trim().toLowerCase();
@@ -276,6 +291,12 @@ onBeforeUnmount(() => {
   display: flex;
   justify-content: flex-end;
   gap: 10px;
+}
+
+.admin-url {
+  color: #475569;
+  font-size: 12px;
+  align-self: center;
 }
 
 .admin-btn {
@@ -479,6 +500,10 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 12px;
   margin-top: 12px;
+}
+
+.admin-actions .admin-url {
+  font-weight: 600;
 }
 
 .admin-actions .mr-6 {
