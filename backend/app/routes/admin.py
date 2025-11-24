@@ -2,11 +2,12 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.schemas.user import UserOut
-from app.schemas.admin import DatabaseTestRequest, DatabaseTestResult
+from app.schemas.admin import DatabaseTestRequest, DatabaseTestResult, SystemConfig, SystemConfigUpdate
 from app.schemas.product import ProductOut, ProductCreate
 from app.schemas.order import OrderOut
 from app.services import auth_service, product_service, order_service
 import app.services.database_service as database_service
+import app.services.system_config_service as system_config_service
 from app.models.user import User
 
 router = APIRouter()
@@ -20,7 +21,8 @@ def admin_root():
       '/admin/users',
       '/admin/products',
       '/admin/orders',
-      '/admin/database/test'
+      '/admin/database/test',
+      '/admin/config'
     ]
   }
 
@@ -64,3 +66,13 @@ def admin_order_detail(order_id: int, db: Session = Depends(get_db)):
 @router.post('/database/test', response_model=DatabaseTestResult, dependencies=[Depends(auth_service.get_current_admin)])
 def admin_test_database(payload: DatabaseTestRequest):
   return database_service.test_mysql_connection(payload)
+
+
+@router.get('/config', response_model=SystemConfig, dependencies=[Depends(auth_service.get_current_admin)])
+def get_admin_config(db: Session = Depends(get_db)):
+  return system_config_service.get_config(db)
+
+
+@router.put('/config', response_model=SystemConfig, dependencies=[Depends(auth_service.get_current_admin)])
+def save_admin_config(payload: SystemConfigUpdate, db: Session = Depends(get_db)):
+  return system_config_service.save_config(db, payload.model_dump())

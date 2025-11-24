@@ -22,3 +22,25 @@ class DatabaseTestResult(BaseModel):
   database_exists: bool
   database_authenticated: bool
   message: str
+
+
+class SystemConfig(BaseModel):
+  server_ip: str
+  domain: str
+  login_user: str
+  login_password: str
+  db_host: str
+  db_port: int
+  db_name: str
+  db_user: str
+  db_password: str
+  root_password: str
+
+
+class SystemConfigUpdate(SystemConfig):
+  @field_validator('server_ip', 'domain', 'login_user', 'db_host', 'db_name', 'db_user', 'db_password', 'root_password')
+  @classmethod
+  def _not_blank(cls, value: str) -> str:
+    if not str(value).strip():
+      raise ValueError('字段不能为空')
+    return value

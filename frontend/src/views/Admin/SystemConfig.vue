@@ -62,7 +62,7 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from 'vue';
+import { onMounted, reactive, ref } from 'vue';
 import { ElMessage } from 'element-plus';
 import http from '@/utils/http';
 import { API_ENDPOINTS } from '@/config/api';
@@ -83,6 +83,38 @@ const defaultConfig = {
 const config = reactive({ ...defaultConfig });
 const passwordForm = reactive({ old: '', new1: '', new2: '' });
 const testing = ref(false);
+const loading = ref(false);
+
+const applyConfig = (data: Record<string, any>) => {
+  const merged = { ...defaultConfig };
+  merged.serverIp = data.server_ip ?? data.serverIp ?? merged.serverIp;
+  merged.domain = data.domain ?? merged.domain;
+  merged.loginUser = data.login_user ?? data.loginUser ?? merged.loginUser;
+  merged.loginPassword = data.login_password ?? data.loginPassword ?? merged.loginPassword;
+  merged.dbHost = data.db_host ?? data.dbHost ?? merged.dbHost;
+  merged.dbPort = data.db_port ?? data.dbPort ?? merged.dbPort;
+  merged.dbName = data.db_name ?? data.dbName ?? merged.dbName;
+  merged.dbUser = data.db_user ?? data.dbUser ?? merged.dbUser;
+  merged.dbPassword = data.db_password ?? data.dbPassword ?? merged.dbPassword;
+  merged.rootPassword = data.root_password ?? data.rootPassword ?? merged.rootPassword;
+  Object.assign(config, merged);
+};
+
+const fetchConfig = async () => {
+  loading.value = true;
+  try {
+    const response = await http.get(API_ENDPOINTS.adminConfig);
+    applyConfig(response.data || {});
+  } catch (error) {
+    console.warn('Failed to load config, using defaults', error);
+    applyConfig(defaultConfig);
+  } finally {
+    loading.value = false;
+    passwordForm.old = '';
+    passwordForm.new1 = '';
+    passwordForm.new2 = '';
+  }
+};
 
 const save = () => {
   if (passwordForm.new1 || passwordForm.new2 || passwordForm.old) {
@@ -99,17 +131,38 @@ const save = () => {
     }
   }
 
-  ElMessage.success('配置已同步到数据库（示例保存）');
-  passwordForm.old = '';
-  passwordForm.new1 = '';
-  passwordForm.new2 = '';
+  loading.value = true;
+  http
+    .put(API_ENDPOINTS.adminConfig, {
+      server_ip: config.serverIp,
+      domain: config.domain,
+      login_user: config.loginUser,
+      login_password: config.loginPassword,
+      db_host: config.dbHost,
+      db_port: config.dbPort,
+      db_name: config.dbName,
+      db_user: config.dbUser,
+      db_password: config.dbPassword,
+      root_password: config.rootPassword
+    })
+    .then((response) => {
+      applyConfig(response.data || {});
+      ElMessage.success('配置已同步到数据库');
+    })
+    .catch((error) => {
+      console.error(error);
+      ElMessage.error('保存配置失败，请稍后重试');
+    })
+    .finally(() => {
+      loading.value = false;
+      passwordForm.old = '';
+      passwordForm.new1 = '';
+      passwordForm.new2 = '';
+    });
 };
 
 const reset = () => {
-  Object.assign(config, defaultConfig);
-  passwordForm.old = '';
-  passwordForm.new1 = '';
-  passwordForm.new2 = '';
+  fetchConfig();
 };
 
 const testDatabase = async () => {
@@ -140,6 +193,10 @@ const testDatabase = async () => {
     testing.value = false;
   }
 };
+
+onMounted(() => {
+  fetchConfig();
+});
 </script>
 
 <style scoped>
