@@ -1,35 +1,36 @@
-import json
 import os
-from pathlib import Path
 from typing import Any, Dict
 
 from pydantic import BaseModel
 
 
-CONFIG_FILE = Path(__file__).with_name('app_settings.json')
+def _default_database_config() -> Dict[str, Any]:
+  return {
+    'user': os.getenv('DB_USER', 'root'),
+    'password': os.getenv('DB_PASSWORD', 'Ad123456'),
+    'host': os.getenv('DB_HOST', 'localhost'),
+    'port': int(os.getenv('DB_PORT', 3306)),
+    'name': os.getenv('DB_NAME', 'englishteacher'),
+  }
 
 
-def _load_file_config() -> Dict[str, Any]:
-  if not CONFIG_FILE.exists():
-    return {}
-
-  with CONFIG_FILE.open() as f:
-    try:
-      return json.load(f)
-    except json.JSONDecodeError:
-      return {}
+def _default_site_config() -> Dict[str, Any]:
+  return {
+    'ip': os.getenv('SITE_IP', '127.0.0.1'),
+    'domain': os.getenv('SITE_DOMAIN', 'localhost'),
+  }
 
 
 def _build_database_url(config: Dict[str, Any]) -> str:
   if os.getenv('DATABASE_URL'):
     return os.getenv('DATABASE_URL')
 
-  db_cfg = config.get('database', {})
-  user = db_cfg.get('user', 'user')
-  password = db_cfg.get('password', 'password')
-  host = db_cfg.get('host', 'localhost')
-  port = db_cfg.get('port', 3306)
-  name = db_cfg.get('name', 'englishteacher')
+  db_cfg = {**_default_database_config(), **config.get('database', {})}
+  user = db_cfg.get('user')
+  password = db_cfg.get('password')
+  host = db_cfg.get('host')
+  port = db_cfg.get('port')
+  name = db_cfg.get('name')
   return f"mysql+pymysql://{user}:{password}@{host}:{port}/{name}"
 
 
@@ -50,10 +51,13 @@ class Settings(BaseModel):
   site_domain: str
 
 
-_file_config = _load_file_config()
+_default_config = {
+  'database': _default_database_config(),
+  'site': _default_site_config(),
+}
 settings = Settings(
-  database_url=_build_database_url(_file_config),
+  database_url=_build_database_url(_default_config),
   cors_origins=_cors_origins_from_env(),
-  site_ip=_file_config.get('site', {}).get('ip', '127.0.0.1'),
-  site_domain=_file_config.get('site', {}).get('domain', 'localhost')
+  site_ip=_default_config.get('site', {}).get('ip', '127.0.0.1'),
+  site_domain=_default_config.get('site', {}).get('domain', 'localhost')
 )
