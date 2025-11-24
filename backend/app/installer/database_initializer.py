@@ -30,6 +30,7 @@ def seed_all(
 
   seeder.seed_products(db)
   seeder.seed_users(db, admin_payload)
+  seeder.seed_admin_users(db, overwrite_existing=overwrite_existing)
   seeder.seed_settings(db, settings_overrides, overwrite_existing=overwrite_existing)
   seeder.seed_integrations(
     db,
@@ -40,3 +41,5 @@ def seed_all(
   seeder.seed_membership_settings(db, overwrite_existing=overwrite_existing)
   seeder.seed_recharge_records(db, overwrite_existing=overwrite_existing)
   seeder.seed_dashboard_stats(db, overwrite_existing=overwrite_existing)
+  seeder.seed_admin_orders(db, overwrite_existing=overwrite_existing)
+  seeder.seed_courses(db, overwrite_existing=overwrite_existing)
