@@ -67,6 +67,8 @@ import { useRouter, useRoute } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import type { InputInstance } from 'element-plus';
 import { useUserStore } from '@/store/user';
+import http from '@/utils/http';
+import { API_ENDPOINTS } from '@/config/api';
 
 const userStore = useUserStore();
 const router = useRouter();
@@ -80,20 +82,25 @@ const codeInputRef = ref<InputInstance>();
 
 const buttonText = computed(() => (countdown.value > 0 ? `${countdown.value}s` : '获取验证码'));
 
-const sendCode = () => {
+const sendCode = async () => {
   const normalizedPhone = form.phone.replace(/\D+/g, '');
   if (!/^\d{4,20}$/.test(normalizedPhone)) {
     ElMessage.error('请输入正确的手机号');
     return;
   }
-  countdown.value = 60;
-  timer.value = window.setInterval(() => {
-    countdown.value -= 1;
-    if (countdown.value <= 0 && timer.value) {
-      window.clearInterval(timer.value);
-    }
-  }, 1000);
-  ElMessage.success('验证码已发送（示例）');
+  try {
+    const { data } = await http.post(API_ENDPOINTS.authSendCode, { phone: normalizedPhone });
+    countdown.value = 60;
+    timer.value = window.setInterval(() => {
+      countdown.value -= 1;
+      if (countdown.value <= 0 && timer.value) {
+        window.clearInterval(timer.value);
+      }
+    }, 1000);
+    ElMessage.success(`验证码已发送${data.code ? `（演示码：${data.code}）` : ''}`);
+  } catch (error: any) {
+    ElMessage.error(error.response?.data?.detail || error.message || '发送验证码失败');
+  }
 };
 
 const onSubmit = async () => {
@@ -104,12 +111,13 @@ const onSubmit = async () => {
   }
   loading.value = true;
   try {
-    userStore.loginWithCode(`${form.countryCode}${normalizedPhone}`.replace(/\D+/g, ''));
+    await userStore.loginWithCode(`${form.countryCode}${normalizedPhone}`.replace(/\D+/g, ''), form.code);
     ElMessage.success('登录成功');
     const redirect = route.query.redirect as string | undefined;
     router.push(redirect || { name: 'home' });
   } catch (error: any) {
-    ElMessage.error(error.message || '登录失败');
+    const detail = error.response?.data?.detail || error.message;
+    ElMessage.error(detail || '登录失败');
   } finally {
     loading.value = false;
   }

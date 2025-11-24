@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia';
+import http from '@/utils/http';
+import { API_ENDPOINTS } from '@/config/api';
 
-export type MembershipLevel = 'free' | 'daily' | 'monthly' | 'yearly' | 'lifetime';
+export type MembershipLevel = 'free' | 'daily' | 'monthly' | 'yearly' | 'lifetime' | string;
 
 interface AuthState {
   token: string | null;
@@ -60,14 +62,18 @@ export const useUserStore = defineStore('user', {
       localStorage.setItem('referrals', String(this.referrals));
       localStorage.setItem('role', this.role);
     },
-    loginWithCode(phone: string) {
+    async loginWithCode(phone: string, code: string) {
       if (!/^[0-9]{4,20}$/.test(phone)) {
         throw new Error('请输入合法的手机号');
       }
-      this.phone = phone;
-      this.setToken(`token-${phone}-${Date.now()}`);
-      this.role = phone.endsWith('0000') ? 'admin' : 'user';
+      const { data } = await http.post(API_ENDPOINTS.authCodeLogin, { phone, code });
+      this.token = data.access_token;
+      this.role = data.user.role;
+      this.phone = data.user.phone;
+      this.membership = (data.user.membership_level || 'free') as MembershipLevel;
+      this.memberUntil = data.user.membership_expires_at;
       this.persistProfile();
+      this.setToken(this.token);
     },
     logout() {
       this.phone = null;
@@ -87,6 +93,25 @@ export const useUserStore = defineStore('user', {
       this.membership = level;
       this.memberUntil = until;
       this.persistProfile();
+    },
+    async fetchProfile() {
+      if (!this.token) return;
+      const { data } = await http.get(API_ENDPOINTS.authMe);
+      this.phone = data.phone;
+      this.membership = (data.membership_level || 'free') as MembershipLevel;
+      this.memberUntil = data.membership_expires_at;
+      this.role = data.role;
+      this.persistProfile();
+    },
+    async ensureProfileLoaded() {
+      if (!this.token) return false;
+      try {
+        await this.fetchProfile();
+        return true;
+      } catch (error) {
+        this.logout();
+        return false;
+      }
     },
     updatePhone(phone: string) {
       this.phone = phone;

@@ -10,3 +10,21 @@ class Token(BaseModel):
 class LoginRequest(BaseModel):
   username: str
   password: str
+
+
+class SendCodeRequest(BaseModel):
+  phone: str
+
+
+class PhoneLoginRequest(BaseModel):
+  phone: str
+  code: str
+
+
+class LoginResponse(Token):
+  user: 'UserOut'
+
+
+from app.schemas.user import UserOut  # noqa: E402  pylint: disable=wrong-import-position
+
+LoginResponse.update_forward_refs()
