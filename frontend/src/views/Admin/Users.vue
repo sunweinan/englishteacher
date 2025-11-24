@@ -84,82 +84,25 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue';
 import { Search, Sort } from '@element-plus/icons-vue';
+import { adminPreloadData, type MemberLevel, type UserProfile } from '@/config/adminPreload';
 
-interface UserProfile {
-  id: number;
-  nickname: string;
-  phone: string;
-  level: '游客' | '月卡' | '年卡' | '终身';
-  registerAt: string;
-  spend: number;
-  tests: number;
-  benefits: string;
-  recharges: string[];
-  note?: string;
-}
-
-const levelOrder: Record<UserProfile['level'], number> = {
+const levelOrder: Record<MemberLevel, number> = {
   游客: 1,
+  日卡: 2,
   月卡: 2,
   年卡: 3,
   终身: 4
 };
 
-const levelColor: Record<UserProfile['level'], 'info' | 'warning' | 'success' | 'danger'> = {
+const levelColor: Record<MemberLevel, 'info' | 'warning' | 'success' | 'danger'> = {
   游客: 'info',
+  日卡: 'info',
   月卡: 'warning',
   年卡: 'success',
   终身: 'danger'
 };
 
-const users = ref<UserProfile[]>([
-  {
-    id: 1,
-    nickname: 'Ava',
-    phone: '138****8888',
-    level: '年卡',
-    registerAt: '2024-03-12T08:36:00',
-    spend: 320,
-    tests: 128,
-    benefits: '有效期 2025-03-11 · 每日10题权限',
-    recharges: ['2024-03-12 年卡 ¥30', '2024-03-30 口语包 ¥15'],
-    note: '近期刚续费，请关注转介绍意向。'
-  },
-  {
-    id: 2,
-    nickname: 'Leo',
-    phone: '139****5566',
-    level: '月卡',
-    registerAt: '2024-04-01T20:10:00',
-    spend: 120,
-    tests: 52,
-    benefits: '有效期 2024-05-01 · 每日5题',
-    recharges: ['2024-04-01 月卡 ¥10', '2024-04-10 口语包 ¥20']
-  },
-  {
-    id: 3,
-    nickname: 'Nina',
-    phone: '137****1020',
-    level: '终身',
-    registerAt: '2024-02-20T12:02:00',
-    spend: 1280,
-    tests: 482,
-    benefits: '终身有效 · 全部题库开放',
-    recharges: ['2024-02-20 终身卡 ¥40'],
-    note: '高活跃度，常用移动端学习。'
-  },
-  {
-    id: 4,
-    nickname: 'Mia',
-    phone: '136****8899',
-    level: '游客',
-    registerAt: '2024-04-08T09:01:00',
-    spend: 0,
-    tests: 8,
-    benefits: '游客试用剩余 7 天 · 仅体验模式',
-    recharges: []
-  }
-]);
+const users = ref<UserProfile[]>([...adminPreloadData.users]);
 
 const keyword = ref('');
 const sortKey = ref<'registerAt' | 'level' | 'spend'>('registerAt');
