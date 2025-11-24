@@ -17,11 +17,11 @@ _installed_config = _install_overrides()
 def _default_database_config() -> Dict[str, Any]:
   install_db = _installed_config.get('database', {}) if isinstance(_installed_config, dict) else {}
   return {
-    'user': install_db.get('user', os.getenv('DB_USER', 'root')),
-    'password': install_db.get('password', os.getenv('DB_PASSWORD', 'Ad123456')),
+    'user': install_db.get('user') or os.getenv('DB_USER'),
+    'password': install_db.get('password') or os.getenv('DB_PASSWORD'),
     'host': install_db.get('host', os.getenv('DB_HOST', 'localhost')),
-    'port': int(install_db.get('port', os.getenv('DB_PORT', 3306))),
-    'name': install_db.get('name', os.getenv('DB_NAME', 'englishteacher')),
+    'port': int(install_db.get('port') or os.getenv('DB_PORT', 3306)),
+    'name': install_db.get('name') or os.getenv('DB_NAME'),
   }
 
 
