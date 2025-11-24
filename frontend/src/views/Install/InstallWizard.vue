@@ -267,6 +267,11 @@ const handleSubmit = async () => {
       (typeof detail === 'string' ? detail : '') ||
       error.message ||
       '安装失败，请稍后重试。';
+    const permissionCommand = detail?.code === 'SEED_DATA_PERMISSION_DENIED' ? detail?.command : '';
+    const enhancedMessage =
+      permissionCommand && typeof permissionCommand === 'string'
+        ? `${message}\n请在服务器终端执行：${permissionCommand}`
+        : message;
 
     if (progressLog.length || failedStep) {
       applyProgressLog(progressLog as Array<{ step: StepKey; label?: string }>, failedStep);
@@ -274,9 +279,9 @@ const handleSubmit = async () => {
       progress.value = Math.max(progress.value, 60);
     }
 
-    statusText.value = message;
-    ElMessage.error(message);
-    await ElMessageBox.alert(message, '安装失败', { type: 'error' });
+    statusText.value = enhancedMessage;
+    ElMessage.error(enhancedMessage);
+    await ElMessageBox.alert(enhancedMessage, permissionCommand ? '安装失败：需要写入权限' : '安装失败', { type: 'error' });
   } finally {
     loading.value = false;
   }

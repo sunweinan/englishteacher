@@ -12,14 +12,22 @@ from sqlalchemy.orm import Session
 from app.core.install_state import INSTALL_STATE_PATH, save_install_state
 from app.schemas.install import InstallRequest
 from app.installer.database_initializer import create_schema, seed_all
+from app.utils.seed_data import PERMISSION_COMMAND, SEED_DATA_DIR, persist_seed_config
 
 
 class InstallProgressError(HTTPException):
   def __init__(self, step: str, message: str, progress: list[Dict[str, str]] | None = None,
-               status_code: int = status.HTTP_400_BAD_REQUEST):
+               status_code: int = status.HTTP_400_BAD_REQUEST, code: str | None = None,
+               command: str | None = None, path: str | None = None):
     detail: Dict[str, Any] = {'step': step, 'message': message}
     if progress is not None:
       detail['progress'] = progress
+    if code:
+      detail['code'] = code
+    if command:
+      detail['command'] = command
+    if path:
+      detail['path'] = path
     super().__init__(status_code=status_code, detail=detail)
 
 
@@ -109,6 +117,21 @@ def _write_server_file(payload: InstallRequest, host: str, port: int) -> None:
     json.dump(data, f, ensure_ascii=False, indent=2)
 
 
+def _persist_seed_files(payload: InstallRequest, host: str, port: int) -> None:
+  persist_seed_config({
+    'server_ip': payload.server_ip,
+    'domain': payload.server_domain,
+    'login_user': payload.admin_username,
+    'login_password': payload.admin_password,
+    'db_host': host,
+    'db_port': port,
+    'db_name': payload.database_name,
+    'db_user': payload.database_user,
+    'db_password': payload.database_password,
+    'root_password': payload.mysql_root_password,
+  }, backend_port=payload.backend_port)
+
+
 def _assert_root_connection(engine, progress: list[Dict[str, str]]) -> None:
   try:
     with engine.connect():
@@ -185,8 +208,16 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
   try:
     _persist_install_config(payload, host, port)
     _write_server_file(payload, host, port)
+    _persist_seed_files(payload, host, port)
   except PermissionError as exc:  # noqa: PERF203
-    raise InstallProgressError('write_config', '写入配置文件失败，请检查目录读写权限。', progress) from exc
+    raise InstallProgressError(
+      'write_config',
+      f'写入配置文件失败，请检查目录读写权限，或执行：{PERMISSION_COMMAND}',
+      progress,
+      code='SEED_DATA_PERMISSION_DENIED',
+      command=PERMISSION_COMMAND,
+      path=str(SEED_DATA_DIR)
+    ) from exc
   _record_step('write_config')
 
   return {

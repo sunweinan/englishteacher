@@ -3,8 +3,11 @@ from __future__ import annotations
 from typing import Dict, Tuple
 
 from sqlalchemy.orm import Session
+from fastapi import HTTPException, status
 
 from app.models.system_setting import SystemSetting
+from app.config import settings
+from app.utils.seed_data import PERMISSION_COMMAND, persist_seed_config, SEED_DATA_DIR
 
 DEFAULT_CONFIG = {
   'server_ip': '10.10.10.8',
@@ -75,5 +78,16 @@ def save_config(db: Session, payload: Dict[str, str | int]) -> Dict[str, str | i
     if value is None:
       continue
     _upsert_setting(db, category, key, str(value))
+  try:
+    persist_seed_config(payload, backend_port=settings.site_port)
+  except PermissionError as exc:  # noqa: PERF203
+    db.rollback()
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={
+      'message': f'写入 seed_data 目录失败，请检查文件权限，或执行：{PERMISSION_COMMAND}',
+      'code': 'SEED_DATA_PERMISSION_DENIED',
+      'command': PERMISSION_COMMAND,
+      'path': str(SEED_DATA_DIR)
+    }) from exc
+
   db.commit()
   return get_config(db)
