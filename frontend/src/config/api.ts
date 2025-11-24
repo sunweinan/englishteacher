@@ -13,7 +13,8 @@ export const API_ENDPOINTS = {
   products: '/products',
   productDetail: (id: number | string) => `/products/${id}`,
   wechatConfig: '/payments/wechat/config',
-  wechatOrder: '/payments/wechat'
+  wechatOrder: '/payments/wechat',
+  adminDatabaseTest: '/admin/database/test'
 };
 
 export function getApiEnvironment(): ApiEnvironment {

@@ -21,6 +21,7 @@ from app.services.payment_service import (
   create_wechat_payment,
   handle_notify,
 )
+from app.services.database_service import test_mysql_connection
 
 __all__ = [
   'authenticate_user',
@@ -37,5 +38,6 @@ __all__ = [
   'get_order',
   'list_orders',
   'create_wechat_payment',
-  'handle_notify'
+  'handle_notify',
+  'test_mysql_connection'
 ]
