@@ -85,6 +85,37 @@
         </div>
       </section>
 
+      <section class="admin-entry">
+        <div class="admin-text">
+          <p class="eyebrow">ADMIN</p>
+          <h2>后台管理入口</h2>
+          <p class="desc">管理课程、会员、支付与系统设置，支持随时切换到运营后台。</p>
+          <div class="admin-actions">
+            <el-tag type="info" effect="dark">{{ adminEntry }}</el-tag>
+            <el-button type="primary" size="large" @click="goAdmin">
+              <el-icon class="mr-6"><Setting /></el-icon>
+              进入后台
+            </el-button>
+          </div>
+        </div>
+        <div class="admin-meta">
+          <div class="meta-item">
+            <el-icon><Monitor /></el-icon>
+            <div>
+              <p class="meta-title">控制台</p>
+              <p class="meta-desc">仪表盘、用户、支付与课程管理</p>
+            </div>
+          </div>
+          <div class="meta-item">
+            <el-icon><Lock /></el-icon>
+            <div>
+              <p class="meta-title">权限校验</p>
+              <p class="meta-desc">需要管理员身份访问</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section class="list" ref="listRef">
         <div
           v-for="course in visibleCourses"
@@ -122,7 +153,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import { Search, Loading } from '@element-plus/icons-vue';
+import { Lock, Monitor, Search, Setting, Loading } from '@element-plus/icons-vue';
 import { courseCards, type CourseCard } from '@/config/courses';
 import { useUserStore } from '@/store/user';
 
@@ -419,6 +450,69 @@ onBeforeUnmount(() => {
   color: #64748b;
 }
 
+.admin-entry {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  align-items: center;
+  gap: 18px;
+  padding: 20px 20px 18px;
+  background: radial-gradient(circle at 10% 10%, rgba(168, 85, 247, 0.08), transparent 30%),
+    radial-gradient(circle at 90% 20%, rgba(16, 185, 129, 0.08), transparent 30%),
+    #ffffff;
+  border: 1px solid #e4e8f0;
+  border-radius: 18px;
+  box-shadow: 0 16px 40px rgba(15, 23, 42, 0.08);
+}
+
+.admin-text h2 {
+  margin: 8px 0 6px;
+}
+
+.admin-text .desc {
+  color: #475569;
+  margin: 0;
+  max-width: 620px;
+}
+
+.admin-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+
+.admin-actions .mr-6 {
+  margin-right: 6px;
+}
+
+.admin-meta {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+.meta-item {
+  display: flex;
+  gap: 10px;
+  padding: 12px;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid #e2e8f0;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+}
+
+.meta-title {
+  margin: 0;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.meta-desc {
+  margin: 2px 0 0;
+  color: #64748b;
+  font-size: 13px;
+}
+
 .list {
   padding: 8px 0 12px;
   display: grid;
@@ -517,6 +611,9 @@ onBeforeUnmount(() => {
   }
   .status-right {
     width: 100%;
+  }
+  .admin-entry {
+    grid-template-columns: 1fr;
   }
 }
 </style>
