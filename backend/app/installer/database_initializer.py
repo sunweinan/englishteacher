@@ -24,13 +24,19 @@ def seed_all(
     admin_payload: Dict[str, str],
     settings_overrides: Dict[str, Any],
     integrations: Dict[str, Dict[str, Any]],
+    overwrite_existing: bool = True,
 ) -> None:
   """Seed all predefined data sets into the database."""
 
   seeder.seed_products(db)
   seeder.seed_users(db, admin_payload)
-  seeder.seed_settings(db, settings_overrides)
-  seeder.seed_integrations(db, integrations.get('wechat', {}), integrations.get('sms', {}))
-  seeder.seed_membership_settings(db)
-  seeder.seed_recharge_records(db)
-  seeder.seed_dashboard_stats(db)
+  seeder.seed_settings(db, settings_overrides, overwrite_existing=overwrite_existing)
+  seeder.seed_integrations(
+    db,
+    integrations.get('wechat', {}),
+    integrations.get('sms', {}),
+    overwrite_existing=overwrite_existing,
+  )
+  seeder.seed_membership_settings(db, overwrite_existing=overwrite_existing)
+  seeder.seed_recharge_records(db, overwrite_existing=overwrite_existing)
+  seeder.seed_dashboard_stats(db, overwrite_existing=overwrite_existing)

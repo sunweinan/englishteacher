@@ -68,6 +68,11 @@ def admin_test_database(payload: DatabaseTestRequest):
   return database_service.test_mysql_connection(payload)
 
 
+@router.post('/database/seed', dependencies=[Depends(auth_service.get_current_admin)])
+def admin_seed_database(db: Session = Depends(get_db)):
+  return database_service.initialize_seed_data(db, overwrite_existing=False)
+
+
 @router.get('/config', response_model=SystemConfig, dependencies=[Depends(auth_service.get_current_admin)])
 def get_admin_config(db: Session = Depends(get_db)):
   return system_config_service.get_config(db)
