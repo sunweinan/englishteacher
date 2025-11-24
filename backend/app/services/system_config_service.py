@@ -8,27 +8,32 @@ from fastapi import HTTPException, status
 from app.models.system_setting import SystemSetting
 from app.models.integration import IntegrationConfig
 from app.config import settings
-from app.utils.seed_data import PERMISSION_COMMAND, persist_seed_config, SEED_DATA_DIR
+from app.utils.seed_data import (
+  load_seed_config,
+  PERMISSION_COMMAND,
+  persist_seed_config,
+  SEED_DATA_DIR
+)
 from app.core.install_state import INSTALL_PERMISSION_COMMAND, INSTALL_STATE_PATH, update_install_state
 
-DEFAULT_CONFIG = {
-  'server_ip': '10.10.10.8',
-  'domain': 'english.example.com',
-  'login_user': 'root',
-  'login_password': 'Admin@123',
-  'db_host': '127.0.0.1',
+DEFAULT_CONFIG = load_seed_config({
+  'server_ip': '',
+  'domain': '',
+  'login_user': '',
+  'login_password': '',
+  'db_host': '',
   'db_port': 3306,
-  'db_name': 'english_db',
-  'db_user': 'english_user',
-  'db_password': 'db_pass_123',
-  'root_password': 'Ad123456',
+  'db_name': '',
+  'db_user': '',
+  'db_password': '',
+  'root_password': '',
   'wechat_app_id': '',
   'wechat_mch_id': '',
   'wechat_api_key': '',
   'sms_provider': '',
   'sms_api_key': '',
   'sms_sign_name': ''
-}
+})
 
 _SETTING_KEYS: Dict[str, Tuple[str, str]] = {
   'server_ip': ('site', 'ip'),
