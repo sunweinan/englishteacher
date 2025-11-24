@@ -21,9 +21,4 @@ async def wechat_notify(request: Request, db: Session = Depends(get_db)):
 
 @router.get('/wechat/config')
 def wechat_config(url: str):
-  return {
-    'appId': 'mock-app',
-    'timestamp': '0',
-    'nonceStr': 'nonce',
-    'signature': 'signature-for-' + url
-  }
+  return payment_service.build_wechat_js_config(url)

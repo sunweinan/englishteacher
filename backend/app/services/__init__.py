@@ -20,6 +20,7 @@ from app.services.order_service import (
 from app.services.payment_service import (
   create_wechat_payment,
   handle_notify,
+  build_wechat_js_config,
 )
 
 __all__ = [
@@ -37,5 +38,6 @@ __all__ = [
   'get_order',
   'list_orders',
   'create_wechat_payment',
-  'handle_notify'
+  'handle_notify',
+  'build_wechat_js_config'
 ]
