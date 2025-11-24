@@ -111,7 +111,7 @@
 
 <script setup lang="ts">
 import { onMounted, reactive, ref } from 'vue';
-import { ElMessage } from 'element-plus';
+import { ElMessage, ElMessageBox } from 'element-plus';
 import router from '@/router';
 import { fetchInstallStatus, runInstallation } from '@/utils/install';
 
@@ -178,12 +178,12 @@ const buildPayload = () => ({
   database_password: form.databasePassword,
   admin_username: form.adminUsername,
   admin_password: form.adminPassword,
-  wechat_app_id: form.wechatAppId,
-  wechat_mch_id: form.wechatMchId,
-  wechat_api_key: form.wechatApiKey,
-  sms_provider: form.smsProvider,
-  sms_api_key: form.smsApiKey,
-  sms_sign_name: form.smsSignName
+  wechat_app_id: form.wechatAppId || null,
+  wechat_mch_id: form.wechatMchId || null,
+  wechat_api_key: form.wechatApiKey || null,
+  sms_provider: form.smsProvider || null,
+  sms_api_key: form.smsApiKey || null,
+  sms_sign_name: form.smsSignName || null
 });
 
 const handleSubmit = async () => {
@@ -208,6 +208,7 @@ const handleSubmit = async () => {
     const detail = error?.response?.data?.detail || error.message || '安装失败，请稍后重试。';
     statusText.value = detail;
     ElMessage.error(detail);
+    await ElMessageBox.alert(detail, '安装失败', { type: 'error' });
   } finally {
     loading.value = false;
   }
