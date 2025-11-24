@@ -2,11 +2,13 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from datetime import datetime
 from typing import Any, Dict, Iterable, List
 
 from sqlalchemy.orm import Session
 
 from app.models.integration import IntegrationConfig
+from app.models.membership import AdminDashboardStat, MembershipSetting, RechargeRecord
 from app.models.product import Product
 from app.models.system_setting import SystemSetting
 from app.models.user import User
@@ -91,4 +93,54 @@ def seed_integrations(db: Session, wechat_config: Dict[str, Any], sms_config: Di
       db.add(existing)
       continue
     db.add(IntegrationConfig(provider=provider, config=config, is_active=is_active, label=label))
+  db.commit()
+
+
+def seed_membership_settings(db: Session) -> None:
+  settings: List[Dict[str, Any]] = _read_json('membership_settings.json')
+  for setting in settings:
+    existing = db.query(MembershipSetting).filter(MembershipSetting.level == setting['level']).first()
+    if existing:
+      existing.price = setting['price']
+      existing.duration_days = setting.get('duration_days', 0)
+      existing.description = setting.get('description', '')
+      db.add(existing)
+      continue
+    db.add(MembershipSetting(**setting))
+  db.commit()
+
+
+def seed_recharge_records(db: Session) -> None:
+  records: List[Dict[str, Any]] = _read_json('admin_payments.json')
+  for record in records:
+    order_no = record['orderNo']
+    existing = db.query(RechargeRecord).filter(RechargeRecord.order_no == order_no).first()
+    paid_at = datetime.fromisoformat(record['time'])
+    payload = {
+      'user_display': record['user'],
+      'level': record['level'],
+      'amount': record['amount'],
+      'channel': record.get('channel', ''),
+      'order_no': order_no,
+      'paid_at': paid_at
+    }
+    if existing:
+      for key, value in payload.items():
+        setattr(existing, key, value)
+      db.add(existing)
+      continue
+    db.add(RechargeRecord(**payload))
+  db.commit()
+
+
+def seed_dashboard_stats(db: Session) -> None:
+  stats: List[Dict[str, Any]] = _read_json('admin_dashboard_stats.json')
+  for entry in stats:
+    existing = db.query(AdminDashboardStat).filter(AdminDashboardStat.label == entry['label']).first()
+    if existing:
+      existing.value = entry.get('value', '')
+      existing.note = entry.get('note', '')
+      db.add(existing)
+      continue
+    db.add(AdminDashboardStat(label=entry['label'], value=entry.get('value', ''), note=entry.get('note', '')))
   db.commit()
