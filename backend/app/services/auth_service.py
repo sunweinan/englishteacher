@@ -21,11 +21,17 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/auth/login')
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+  if not hashed_password:
+    return False
+
   try:
     return pwd_context.verify(plain_password, hashed_password)
   except ValueError:
     # Handle invalid or legacy hashes gracefully instead of bubbling up
-    return False
+    return plain_password == hashed_password
+  except Exception:
+    # Avoid leaking unexpected errors to callers; fall back to plaintext check
+    return plain_password == hashed_password
 
 
 def get_password_hash(password: str) -> str:
