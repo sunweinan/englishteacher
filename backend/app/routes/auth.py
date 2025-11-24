@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
-from app.schemas.auth import Token, LoginRequest
+from app.schemas.auth import LoginResponse, Token, LoginRequest, SendCodeRequest, PhoneLoginRequest
 from app.schemas.user import UserOut, UserCreate
 from app.services import auth_service
 from app.core.database import get_db
@@ -13,6 +13,19 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
   user = auth_service.authenticate_user(db, payload.username, payload.password)
   token = auth_service.create_access_token(auth_service.build_token_payload(user))
   return {'access_token': token, 'token_type': 'bearer'}
+
+
+@router.post('/send-code')
+def send_code(payload: SendCodeRequest):
+  code = auth_service.send_verification_code(payload.phone)
+  return {'message': '验证码已发送', 'code': code}
+
+
+@router.post('/code-login', response_model=LoginResponse)
+def code_login(payload: PhoneLoginRequest, db: Session = Depends(get_db)):
+  user = auth_service.login_with_phone_code(db, payload.phone, payload.code)
+  token = auth_service.create_access_token(auth_service.build_token_payload(user))
+  return {'access_token': token, 'token_type': 'bearer', 'user': user}
 
 
 @router.post('/admin/login', response_model=Token)

@@ -259,7 +259,12 @@ watch(
   }
 );
 
-onMounted(() => {
+onMounted(async () => {
+  const ok = await userStore.ensureProfileLoaded();
+  if (!ok) {
+    router.push({ name: 'login', query: { redirect: router.currentRoute.value.fullPath } });
+    return;
+  }
   coursesStore.fetchCourses().then(() => {
     filteredCourses.value = coursesStore.courses;
     resetAndLoad();

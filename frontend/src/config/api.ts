@@ -9,6 +9,8 @@ export const DEFAULT_API_ENV: ApiEnvironment = 'local';
 
 export const API_ENDPOINTS = {
   authLogin: '/auth/login',
+  authSendCode: '/auth/send-code',
+  authCodeLogin: '/auth/code-login',
   adminLogin: '/auth/admin/login',
   authMe: '/auth/me',
   products: '/products',
