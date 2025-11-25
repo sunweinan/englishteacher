@@ -30,6 +30,7 @@ export const API_ENDPOINTS = {
   adminCourses: '/admin/courses',
   adminCourseDetail: (id: number | string) => `/admin/courses/${id}`,
   installStatus: '/install/status',
+  installDatabaseTest: '/install/database/test',
   installRun: '/install/run'
 };
 
