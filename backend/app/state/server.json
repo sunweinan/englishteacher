@@ -1,0 +1,15 @@
+{
+  "site": {
+    "ip": "127.0.0.1",
+    "domain": "localhost",
+    "backend_port": 8000
+  },
+  "database": {
+    "host": "db",
+    "port": 3306,
+    "name": "englishteacher",
+    "user": "user",
+    "password": "password",
+    "root_password": "Ad123456"
+  }
+}
