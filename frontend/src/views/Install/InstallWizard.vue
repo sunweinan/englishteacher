@@ -235,7 +235,7 @@ const markStepSuccess = (key: StepKey) => {
 };
 
 const handleTestConnection = async () => {
-  const host = form.mysqlHost || form.serverDomain;
+  const host = form.mysqlHost?.trim();
   if (!host) {
     ElMessage.error('请填写 MySQL 主机或服务器域名');
     return;
@@ -255,9 +255,6 @@ const handleTestConnection = async () => {
     const response = await http.post(API_ENDPOINTS.adminDatabaseTest, {
       host,
       port: form.mysqlPort,
-      db_name: form.databaseName || null,
-      db_user: form.databaseUser || null,
-      db_password: form.databasePassword || null,
       root_password: form.mysqlRootPassword
     });
 
