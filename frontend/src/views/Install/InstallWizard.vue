@@ -6,8 +6,9 @@
           <h2>EnglishTeacher 系统安装向导</h2>
           <p class="subtitle">首次启动时完成数据库与管理员初始化，仅在未连接 MySQL 时出现。</p>
         </div>
-        <el-tag v-if="!status.connected" type="danger">未连接 MySQL</el-tag>
-        <el-tag v-else type="success">检测到数据库</el-tag>
+        <el-tag :type="status.connected ? 'success' : 'danger'">
+          {{ status.connected ? 'MySQL 链接成功' : '未连接 MySQL' }}
+        </el-tag>
       </div>
 
       <el-alert
@@ -29,17 +30,6 @@
       </el-steps>
 
       <el-form :model="form" label-width="160px" :disabled="loading">
-        <el-divider>服务器与后端配置</el-divider>
-        <el-form-item label="服务器域名">
-          <el-input v-model="form.serverDomain" placeholder="例如 api.example.com" />
-        </el-form-item>
-        <el-form-item label="服务器 IP 地址">
-          <el-input v-model="form.serverIp" placeholder="例如 192.168.1.10" />
-        </el-form-item>
-        <el-form-item label="后端端口">
-          <el-input-number v-model="form.backendPort" :min="1" :max="65535" />
-        </el-form-item>
-
         <el-divider>MySQL 连接</el-divider>
         <el-form-item label="MySQL URL (可选)">
           <el-input v-model="form.mysqlUrl" placeholder="不填则使用下方主机与端口" />
@@ -66,6 +56,17 @@
         </el-form-item>
         <el-form-item label="业务密码">
           <el-input v-model="form.databasePassword" type="password" show-password />
+        </el-form-item>
+
+        <el-divider>服务器与后端配置</el-divider>
+        <el-form-item label="服务器域名">
+          <el-input v-model="form.serverDomain" placeholder="例如 api.example.com" />
+        </el-form-item>
+        <el-form-item label="服务器 IP 地址">
+          <el-input v-model="form.serverIp" placeholder="例如 192.168.1.10" />
+        </el-form-item>
+        <el-form-item label="后端端口">
+          <el-input-number v-model="form.backendPort" :min="1" :max="65535" />
         </el-form-item>
 
         <el-divider>后台管理员</el-divider>
@@ -210,7 +211,7 @@ const buildPayload = () => ({
   server_ip: form.serverIp,
   backend_port: form.backendPort,
   mysql_url: form.mysqlUrl || null,
-  mysql_host: form.mysqlHost || null,
+  mysql_host: form.mysqlHost || form.serverDomain || null,
   mysql_port: form.mysqlPort,
   mysql_root_password: form.mysqlRootPassword,
   database_name: form.databaseName,
@@ -234,13 +235,14 @@ const markStepSuccess = (key: StepKey) => {
 };
 
 const handleTestConnection = async () => {
-  if (!form.mysqlRootPassword) {
-    ElMessage.error('请填写 MySQL root 密码后再测试连接');
+  const host = form.mysqlHost || form.serverDomain;
+  if (!host) {
+    ElMessage.error('请填写 MySQL 主机或服务器域名');
     return;
   }
 
-  if (!form.databaseName || !form.databaseUser || !form.databasePassword) {
-    ElMessage.error('请先填写数据库名称、业务账号与密码');
+  if (!form.mysqlRootPassword) {
+    ElMessage.error('请填写 MySQL root 密码后再测试连接');
     return;
   }
 
@@ -251,22 +253,25 @@ const handleTestConnection = async () => {
 
   try {
     const response = await http.post(API_ENDPOINTS.adminDatabaseTest, {
-      host: form.mysqlHost || form.serverDomain,
+      host,
       port: form.mysqlPort,
-      db_name: form.databaseName,
-      db_user: form.databaseUser,
-      db_password: form.databasePassword,
+      db_name: form.databaseName || null,
+      db_user: form.databaseUser || null,
+      db_password: form.databasePassword || null,
       root_password: form.mysqlRootPassword
     });
 
-    ElMessage.success(response.data?.message || '数据库连接成功');
-    statusText.value = '数据库连接正常，请继续填写';
+    const successMessage = response.data?.message || '数据库连接正常，请继续填写';
+    ElMessage.success(successMessage);
+    status.connected = true;
+    statusText.value = successMessage;
     markStepSuccess('check_db');
     stepStatuses.fill_form = 'process';
     activeStep.value = 1;
   } catch (error: any) {
     const message = error?.response?.data?.detail || '数据库连接检测失败，请检查配置';
     statusText.value = message;
+    status.connected = false;
     stepStatuses.check_db = 'error';
     progressStatus.value = 'exception';
     ElMessage.error(message);
@@ -279,6 +284,16 @@ const handleTestConnection = async () => {
 const handleSubmit = async () => {
   if (stepStatuses.check_db !== 'success') {
     ElMessage.error('请先通过数据库连接测试');
+    return;
+  }
+
+  if (!form.mysqlHost && !form.serverDomain) {
+    ElMessage.error('请填写 MySQL 主机或服务器域名');
+    return;
+  }
+
+  if (!form.databaseName || !form.databaseUser || !form.databasePassword) {
+    ElMessage.error('请填写数据库名称、业务账号与密码');
     return;
   }
 
