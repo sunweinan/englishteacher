@@ -252,7 +252,7 @@ const handleTestConnection = async () => {
   syncProgressFromSteps();
 
   try {
-    const response = await http.post(API_ENDPOINTS.adminDatabaseTest, {
+    const response = await http.post(API_ENDPOINTS.installDatabaseTest, {
       host,
       port: form.mysqlPort,
       root_password: form.mysqlRootPassword
@@ -307,7 +307,7 @@ const handleSubmit = async () => {
   syncProgressFromSteps();
 
   try {
-    await http.post(API_ENDPOINTS.adminDatabaseTest, {
+    await http.post(API_ENDPOINTS.installDatabaseTest, {
       host: form.mysqlHost || form.serverDomain,
       port: form.mysqlPort,
       db_name: form.databaseName,

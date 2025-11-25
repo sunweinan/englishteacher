@@ -1,9 +1,11 @@
 from fastapi import APIRouter, HTTPException
 
 from app.config import settings
+from app.schemas.admin import DatabaseTestRequest, DatabaseTestResult
 from app.schemas.install import InstallRequest, InstallResult, InstallStatus
 from app.installer import service as installer_service
 from app.core.install_state import load_install_state
+from app.services import database_service
 
 router = APIRouter(prefix='/install', tags=['install'])
 
@@ -15,6 +17,11 @@ def install_status():
   connected = installer_service.test_mysql_connection(settings.database_url)
   message = '数据库已连接' if connected else '尚未连接到数据库，需执行安装向导。'
   return {'connected': connected, 'installed': installed, 'message': message}
+
+
+@router.post('/database/test', response_model=DatabaseTestResult)
+def install_test_database(payload: DatabaseTestRequest):
+  return database_service.test_mysql_connection(payload)
 
 
 @router.post('/run', response_model=InstallResult)
