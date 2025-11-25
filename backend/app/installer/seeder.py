@@ -42,11 +42,22 @@ def seed_users(db: Session, admin_payload: Dict[str, str]) -> None:
     exists = db.query(User).filter(User.username == item.get('username')).first()
     if exists:
       continue
-    db.add(User(username=item['username'], password_hash=get_password_hash(item['password']), role=item.get('role', 'user')))
+    phone = item.get('phone') or item['username']
+    db.add(User(
+      username=item['username'],
+      phone=phone,
+      password_hash=get_password_hash(item['password']),
+      role=item.get('role', 'user')
+    ))
 
   admin_exists = db.query(User).filter(User.username == admin_payload['username']).first()
   if not admin_exists:
-    db.add(User(username=admin_payload['username'], password_hash=get_password_hash(admin_payload['password']), role='admin'))
+    db.add(User(
+      username=admin_payload['username'],
+      phone=admin_payload.get('phone') or admin_payload['username'],
+      password_hash=get_password_hash(admin_payload['password']),
+      role='admin'
+    ))
   db.commit()
 
 

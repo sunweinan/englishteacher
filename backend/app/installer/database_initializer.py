@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Any, Dict
 
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Engine
 from sqlalchemy.orm import Session, sessionmaker
 
@@ -15,6 +16,14 @@ def create_schema(engine: Engine) -> sessionmaker:
   """Create all tables and return a configured ``sessionmaker``."""
 
   Base.metadata.create_all(bind=engine)
+  inspector = inspect(engine)
+  columns = [col['name'] for col in inspector.get_columns('users')]
+  if 'phone' not in columns:
+    with engine.connect() as conn:
+      conn.execute(text('ALTER TABLE users ADD COLUMN phone VARCHAR(20) NULL AFTER username'))
+      conn.execute(text('CREATE UNIQUE INDEX idx_users_phone ON users (phone)'))
+      conn.execute(text('UPDATE users SET phone = username WHERE phone IS NULL OR phone = ""'))
+      conn.commit()
   return sessionmaker(bind=engine, autoflush=False, autocommit=False, expire_on_commit=False)
 
 
