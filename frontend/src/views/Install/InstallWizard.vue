@@ -151,6 +151,14 @@ const stepItems = [
 type StepKey = (typeof stepItems)[number]['key'];
 type StepStatus = 'wait' | 'process' | 'success' | 'error';
 
+const installStepLabels: Record<string, string> = {
+  connect_root: '登录 MySQL root',
+  provision_db: '创建数据库和账号',
+  init_schema: '初始化表结构',
+  seed_data: '写入预置数据',
+  write_config: '写入配置文件'
+};
+
 const stepStatuses = reactive<Record<StepKey, StepStatus>>(
   stepItems.reduce((acc, item, index) => {
     acc[item.key] = index === 0 ? 'process' : 'wait';
@@ -193,6 +201,43 @@ const syncProgressFromSteps = () => {
   const hasProcessing = stepItems.some((step) => stepStatuses[step.key] === 'process');
   const percent = Math.min(100, Math.round(((completed + (hasProcessing ? 0.5 : 0)) / total) * 100));
   progress.value = Math.max(progress.value, percent);
+};
+
+const formatInstallError = (detail: any) => {
+  if (!detail) return '';
+  if (typeof detail === 'string') return detail;
+
+  const lines: string[] = [];
+  const mainMessage = detail.message || detail.detail;
+  if (mainMessage) lines.push(mainMessage);
+
+  if (detail.step) {
+    const stepLabel = installStepLabels[detail.step] || detail.step;
+    lines.push(`失败环节：${stepLabel}`);
+  }
+
+  if (Array.isArray(detail.progress) && detail.progress.length) {
+    const completedSteps = detail.progress
+      .map((item: any) => item.label || installStepLabels[item.step] || item.step)
+      .filter(Boolean);
+    if (completedSteps.length) {
+      lines.push(`已完成：${completedSteps.join('、')}`);
+    }
+  }
+
+  if (detail.code) {
+    lines.push(`错误代码：${detail.code}`);
+  }
+
+  if (detail.command) {
+    lines.push(`可尝试执行：${detail.command}`);
+  }
+
+  if (detail.path) {
+    lines.push(`相关路径：${detail.path}`);
+  }
+
+  return lines.join('\n');
 };
 
 const loadStatus = async () => {
@@ -330,12 +375,16 @@ const handleSubmit = async () => {
     await router.push({ name: 'admin-login' });
   } catch (error: any) {
     const detail = error?.response?.data?.detail;
-    const message = (typeof detail === 'object' && detail?.message) || detail || '初始化失败，请稍后重试';
+    const formattedMessage = formatInstallError(detail);
+    const message = formattedMessage || (typeof detail === 'string' ? detail : detail?.message) || '初始化失败，请稍后重试';
     statusText.value = message;
     stepStatuses.initialize = 'error';
     progressStatus.value = 'exception';
     ElMessage.error(message);
-    await ElMessageBox.alert(message, '初始化失败', { type: 'error' });
+    await ElMessageBox.alert(message, '初始化失败', {
+      type: 'error',
+      customClass: 'install-error-dialog'
+    });
   } finally {
     loading.value = false;
     syncProgressFromSteps();
@@ -405,5 +454,10 @@ const goToAdmin = async () => {
 
 .mt-8 {
   margin-top: 8px;
+}
+
+:deep(.install-error-dialog .el-message-box__message) {
+  white-space: pre-wrap;
+  line-height: 1.6;
 }
 </style>
