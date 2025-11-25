@@ -51,7 +51,10 @@
           <el-input-number v-model="form.mysqlPort" :min="1" :max="65535" />
         </el-form-item>
         <el-form-item label="MySQL root 密码" required>
-          <el-input v-model="form.mysqlRootPassword" type="password" show-password />
+          <div class="inline-input">
+            <el-input v-model="form.mysqlRootPassword" type="password" show-password />
+            <el-button type="primary" :loading="testingConnection" @click="handleTestConnection">测试连接</el-button>
+          </div>
         </el-form-item>
 
         <el-divider>数据库实例</el-divider>
@@ -119,7 +122,9 @@
 import { onMounted, reactive, ref } from 'vue';
 import { ElMessage, ElMessageBox } from 'element-plus';
 import router from '@/router';
-import { fetchInstallStatus, runInstallation } from '@/utils/install';
+import http from '@/utils/http';
+import { API_ENDPOINTS } from '@/config/api';
+import { fetchInstallStatus } from '@/utils/install';
 
 const loading = ref(false);
 const progress = ref(0);
@@ -129,13 +134,13 @@ const statusText = ref('');
 const resultDialog = ref(false);
 const resultMessage = ref('');
 const status = reactive({ connected: false, installed: false });
+const testingConnection = ref(false);
 
 const stepItems = [
-  { key: 'connect_root', title: '登录 MySQL root', description: '校验 MySQL root 连接' },
-  { key: 'provision_db', title: '创建数据库', description: '创建数据库与业务账号' },
-  { key: 'init_schema', title: '初始化表结构', description: '创建表结构与基础信息' },
-  { key: 'seed_data', title: '导入数据', description: '写入管理员与预置数据' },
-  { key: 'write_config', title: '保存配置', description: '写入服务器与集成配置' }
+  { key: 'check_db', title: '检测数据库', description: '验证 MySQL 连接' },
+  { key: 'fill_form', title: '填写信息', description: '输入服务器、数据库与管理员信息' },
+  { key: 'initialize', title: '初始化数据库', description: '测试连接并初始化数据' },
+  { key: 'finish', title: '完成', description: '准备进入后台登录' }
 ] as const;
 
 type StepKey = (typeof stepItems)[number]['key'];
@@ -185,25 +190,6 @@ const syncProgressFromSteps = () => {
   progress.value = Math.max(progress.value, percent);
 };
 
-const applyProgressLog = (log: Array<{ step: StepKey; label?: string }> = [], failedStep?: StepKey) => {
-  resetSteps();
-  log.forEach((entry) => {
-    if (entry.step in stepStatuses) {
-      stepStatuses[entry.step] = 'success';
-    }
-  });
-
-  if (failedStep && failedStep in stepStatuses) {
-    stepStatuses[failedStep] = 'error';
-    activeStep.value = stepItems.findIndex((item) => item.key === failedStep);
-  } else {
-    const nextPendingIndex = stepItems.findIndex((item) => stepStatuses[item.key] !== 'success');
-    activeStep.value = nextPendingIndex === -1 ? stepItems.length - 1 : Math.max(nextPendingIndex - 1, 0);
-  }
-
-  syncProgressFromSteps();
-};
-
 const loadStatus = async () => {
   const { data } = await fetchInstallStatus();
   status.connected = data.connected;
@@ -240,50 +226,103 @@ const buildPayload = () => ({
   sms_sign_name: form.smsSignName || null
 });
 
-const handleSubmit = async () => {
+const markStepSuccess = (key: StepKey) => {
+  stepStatuses[key] = 'success';
+  const nextIndex = stepItems.findIndex((item) => stepStatuses[item.key] !== 'success');
+  activeStep.value = nextIndex === -1 ? stepItems.length - 1 : Math.max(nextIndex, 0);
+  syncProgressFromSteps();
+};
+
+const handleTestConnection = async () => {
   if (!form.mysqlRootPassword) {
-    ElMessage.error('请填写 MySQL root 密码后继续。');
+    ElMessage.error('请填写 MySQL root 密码后再测试连接');
     return;
   }
-  resetSteps();
+
+  if (!form.databaseName || !form.databaseUser || !form.databasePassword) {
+    ElMessage.error('请先填写数据库名称、业务账号与密码');
+    return;
+  }
+
+  testingConnection.value = true;
+  statusText.value = '正在检测数据库连接...';
+  stepStatuses.check_db = 'process';
+  syncProgressFromSteps();
+
+  try {
+    const response = await http.post(API_ENDPOINTS.adminDatabaseTest, {
+      host: form.mysqlHost || form.serverDomain,
+      port: form.mysqlPort,
+      db_name: form.databaseName,
+      db_user: form.databaseUser,
+      db_password: form.databasePassword,
+      root_password: form.mysqlRootPassword
+    });
+
+    ElMessage.success(response.data?.message || '数据库连接成功');
+    statusText.value = '数据库连接正常，请继续填写';
+    markStepSuccess('check_db');
+    stepStatuses.fill_form = 'process';
+    activeStep.value = 1;
+  } catch (error: any) {
+    const message = error?.response?.data?.detail || '数据库连接检测失败，请检查配置';
+    statusText.value = message;
+    stepStatuses.check_db = 'error';
+    progressStatus.value = 'exception';
+    ElMessage.error(message);
+  } finally {
+    testingConnection.value = false;
+    syncProgressFromSteps();
+  }
+};
+
+const handleSubmit = async () => {
+  if (stepStatuses.check_db !== 'success') {
+    ElMessage.error('请先通过数据库连接测试');
+    return;
+  }
+
+  if (!form.adminUsername || !form.adminPassword) {
+    ElMessage.error('请填写管理员账号与密码');
+    return;
+  }
+
   loading.value = true;
-  statusText.value = stepItems[0].title;
+  statusText.value = '开始初始化数据库...';
+  stepStatuses.fill_form = 'success';
+  stepStatuses.initialize = 'process';
   progressStatus.value = '';
   syncProgressFromSteps();
+
   try {
-    const { data } = await runInstallation(buildPayload());
-    applyProgressLog((data as any)?.progress || stepItems.map((item) => ({ step: item.key })));
+    await http.post(API_ENDPOINTS.adminDatabaseTest, {
+      host: form.mysqlHost || form.serverDomain,
+      port: form.mysqlPort,
+      db_name: form.databaseName,
+      db_user: form.databaseUser,
+      db_password: form.databasePassword,
+      root_password: form.mysqlRootPassword
+    });
+
+    await http.post(API_ENDPOINTS.adminDatabaseSeed, buildPayload());
+
+    statusText.value = '初始化成功，正在跳转到后台登录...';
+    markStepSuccess('initialize');
+    stepStatuses.finish = 'success';
     progressStatus.value = 'success';
-    statusText.value = '安装完成';
-    resultMessage.value = data.message;
-    resultDialog.value = true;
+    syncProgressFromSteps();
+    await router.push({ name: 'admin-login' });
   } catch (error: any) {
-    progressStatus.value = 'exception';
     const detail = error?.response?.data?.detail;
-    const failedStep = (typeof detail === 'object' && detail?.step) as StepKey | undefined;
-    const progressLog = (typeof detail === 'object' && detail?.progress) || [];
-    const message =
-      (typeof detail === 'object' && detail?.message) ||
-      (typeof detail === 'string' ? detail : '') ||
-      error.message ||
-      '安装失败，请稍后重试。';
-    const permissionCommand = detail?.code === 'SEED_DATA_PERMISSION_DENIED' ? detail?.command : '';
-    const enhancedMessage =
-      permissionCommand && typeof permissionCommand === 'string'
-        ? `${message}\n请在服务器终端执行：${permissionCommand}`
-        : message;
-
-    if (progressLog.length || failedStep) {
-      applyProgressLog(progressLog as Array<{ step: StepKey; label?: string }>, failedStep);
-    } else {
-      progress.value = Math.max(progress.value, 60);
-    }
-
-    statusText.value = enhancedMessage;
-    ElMessage.error(enhancedMessage);
-    await ElMessageBox.alert(enhancedMessage, permissionCommand ? '安装失败：需要写入权限' : '安装失败', { type: 'error' });
+    const message = (typeof detail === 'object' && detail?.message) || detail || '初始化失败，请稍后重试';
+    statusText.value = message;
+    stepStatuses.initialize = 'error';
+    progressStatus.value = 'exception';
+    ElMessage.error(message);
+    await ElMessageBox.alert(message, '初始化失败', { type: 'error' });
   } finally {
     loading.value = false;
+    syncProgressFromSteps();
   }
 };
 
@@ -327,6 +366,11 @@ const goToAdmin = async () => {
   align-items: center;
   gap: 12px;
   margin-top: 8px;
+}
+
+.inline-input {
+  display: flex;
+  gap: 8px;
 }
 
 .progress-text {
