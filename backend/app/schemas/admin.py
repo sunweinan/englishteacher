@@ -6,14 +6,23 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class DatabaseTestRequest(BaseModel):
   host: str = Field(..., description='MySQL server host or IP')
   port: int = Field(3306, ge=1, le=65535, description='MySQL port')
-  db_name: str = Field(..., description='Target database name')
-  db_user: str = Field(..., description='Application database user')
-  db_password: str = Field(..., description='Application database password')
+  db_name: str | None = Field(None, description='Target database name')
+  db_user: str | None = Field(None, description='Application database user')
+  db_password: str | None = Field(None, description='Application database password')
   root_password: str = Field(..., description='Default root password to verify')
 
-  @field_validator('host', 'db_name', 'db_user', 'db_password', 'root_password')
+  @field_validator('host', 'root_password')
   @classmethod
-  def _not_blank(cls, value: str) -> str:
+  def _required_not_blank(cls, value: str) -> str:
+    if not str(value).strip():
+      raise ValueError('字段不能为空')
+    return value
+
+  @field_validator('db_name', 'db_user', 'db_password')
+  @classmethod
+  def _optional_not_blank(cls, value: str | None) -> str | None:
+    if value is None:
+      return value
     if not str(value).strip():
       raise ValueError('字段不能为空')
     return value
