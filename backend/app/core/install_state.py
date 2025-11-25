@@ -4,9 +4,9 @@ import json
 from pathlib import Path
 from typing import Any, Dict
 
-INSTALL_STATE_PATH = Path(__file__).resolve().parent.parent / 'install' / 'state' / 'installation.json'
+INSTALL_STATE_PATH = Path(__file__).resolve().parent.parent / 'state' / 'installation.json'
 SERVER_CONFIG_PATH = INSTALL_STATE_PATH.parent / 'server.json'
-INSTALL_PERMISSION_COMMAND = 'chmod -R 775 backend/app/install/state'
+INSTALL_PERMISSION_COMMAND = 'chmod -R 775 backend/app/state'
 INSTALL_STATE_DIR = INSTALL_STATE_PATH.parent
 
 
