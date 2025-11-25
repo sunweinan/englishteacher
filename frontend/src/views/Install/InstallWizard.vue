@@ -36,6 +36,10 @@
         </el-form-item>
         <el-form-item label="MySQL 主机">
           <el-input v-model="form.mysqlHost" placeholder="默认与服务器一致" />
+          <p class="form-tip">
+            如果通过 docker-compose 运行，请将主机填写为 <code>db</code>，或在宿主机暴露后使用
+            <code>host.docker.internal</code>，避免在容器内使用 <code>127.0.0.1</code>。
+          </p>
         </el-form-item>
         <el-form-item label="MySQL 端口">
           <el-input-number v-model="form.mysqlPort" :min="1" :max="65535" />
@@ -367,6 +371,12 @@ const goToAdmin = async () => {
 .subtitle {
   color: #606266;
   margin: 4px 0 0;
+}
+
+.form-tip {
+  margin-top: 6px;
+  font-size: 13px;
+  color: #909399;
 }
 
 .mb-16 {
