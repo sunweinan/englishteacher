@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Dict, Tuple
 
 from sqlalchemy.orm import Session
@@ -9,14 +10,8 @@ from app.models.system_setting import SystemSetting
 from app.models.integration import IntegrationConfig
 from app.config import settings
 from app.utils.seed_data import PERMISSION_COMMAND, persist_seed_config, SEED_DATA_DIR
-from app.core.install_state import (
-  INSTALL_PERMISSION_COMMAND,
-  INSTALL_STATE_PATH,
-  SERVER_CONFIG_PATH,
-  load_server_config,
-  save_server_config,
-  update_install_state
-)
+from app.core.config_store import CONFIG_PATH, load_config, merge_config_updates
+from app.core.install_state import INSTALL_PERMISSION_COMMAND, INSTALL_STATE_PATH, ensure_install_state_dir
 
 DEFAULT_CONFIG = {
   'server_ip': '',
@@ -109,7 +104,7 @@ def _upsert_integration_config(db: Session, provider: str, *, label: str, config
 
 def _build_defaults_from_server_config() -> Dict[str, str | int]:
   data: Dict[str, str | int] = {**DEFAULT_CONFIG}
-  server_config = load_server_config()
+  server_config = load_config()
   site = server_config.get('site', {}) if isinstance(server_config, dict) else {}
   database = server_config.get('database', {}) if isinstance(server_config, dict) else {}
 
@@ -197,31 +192,7 @@ def save_config(db: Session, payload: Dict[str, str | int]) -> Dict[str, str | i
     }) from exc
 
   try:
-    update_install_state({
-      'database': {
-        'user': payload.get('db_user'),
-        'password': payload.get('db_password'),
-        'host': payload.get('db_host'),
-        'port': payload.get('db_port'),
-        'name': payload.get('db_name')
-      },
-      'site': {
-        'ip': payload.get('server_ip'),
-        'domain': payload.get('domain'),
-        'backend_port': settings.site_port,
-      }
-    })
-  except PermissionError as exc:  # noqa: PERF203
-    db.rollback()
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={
-      'message': f'写入 installation.json 失败，请检查文件权限，或执行：{INSTALL_PERMISSION_COMMAND}',
-      'code': 'INSTALL_STATE_PERMISSION_DENIED',
-      'command': INSTALL_PERMISSION_COMMAND,
-      'path': str(INSTALL_STATE_PATH)
-    }) from exc
-
-  try:
-    save_server_config({
+    merged_config = merge_config_updates({
       'site': {
         'ip': payload.get('server_ip'),
         'domain': payload.get('domain'),
@@ -236,13 +207,23 @@ def save_config(db: Session, payload: Dict[str, str | int]) -> Dict[str, str | i
         'root_password': payload.get('root_password'),
       }
     })
+    # keep a snapshot for installer fallback
+    state = {'config': merged_config}
+    ensure_install_state_dir()
+    with INSTALL_STATE_PATH.open('w', encoding='utf-8') as state_file:
+      json.dump(state, state_file, ensure_ascii=False, indent=2)
   except PermissionError as exc:  # noqa: PERF203
     db.rollback()
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={
-      'message': f'写入 server.json 失败，请检查文件权限，或执行：{INSTALL_PERMISSION_COMMAND}',
+      'message': f'写入配置文件失败，请检查文件权限，或执行：{INSTALL_PERMISSION_COMMAND}',
       'code': 'INSTALL_STATE_PERMISSION_DENIED',
       'command': INSTALL_PERMISSION_COMMAND,
-      'path': str(SERVER_CONFIG_PATH)
+      'path': str(CONFIG_PATH)
+    }) from exc
+  except OSError as exc:  # noqa: PERF203
+    db.rollback()
+    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail={
+      'message': '更新配置文件失败，请检查磁盘空间或路径。'
     }) from exc
 
   db.commit()

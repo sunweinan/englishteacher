@@ -8,7 +8,8 @@ from sqlalchemy import create_engine, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
-from app.core.install_state import INSTALL_STATE_PATH, save_install_state, save_server_config
+from app.core.config_store import CONFIG_PATH, merge_config_updates
+from app.core.install_state import INSTALL_STATE_PATH, save_install_state
 from app.schemas.install import InstallRequest
 from app.installer.database_initializer import create_schema, seed_all
 from app.utils.seed_data import PERMISSION_COMMAND, SEED_DATA_DIR, persist_seed_config
@@ -65,23 +66,9 @@ def _create_app_engine(host: str, port: int, user: str, password: str, db_name: 
   )
 
 
-def _persist_install_config(payload: InstallRequest, host: str, port: int) -> None:
-  state = {
+def _persist_install_state(payload: InstallRequest) -> None:
+  save_install_state({
     'installed': True,
-    'config': {
-      'database': {
-        'user': payload.database_user,
-        'password': payload.database_password,
-        'host': host,
-        'port': port,
-        'name': payload.database_name,
-      },
-      'site': {
-        'ip': payload.server_ip,
-        'domain': payload.server_domain,
-        'backend_port': payload.backend_port,
-      }
-    },
     'admin': {
       'username': payload.admin_username,
       'password': payload.admin_password
@@ -97,25 +84,6 @@ def _persist_install_config(payload: InstallRequest, host: str, port: int) -> No
         'api_key': payload.sms_api_key,
         'sign_name': payload.sms_sign_name
       }
-    }
-  }
-  save_install_state(state)
-
-
-def _write_server_file(payload: InstallRequest, host: str, port: int) -> None:
-  save_server_config({
-    'site': {
-      'domain': payload.server_domain,
-      'ip': payload.server_ip,
-      'backend_port': payload.backend_port
-    },
-    'database': {
-      'host': host,
-      'port': port,
-      'name': payload.database_name,
-      'user': payload.database_user,
-      'password': payload.database_password,
-      'root_password': payload.mysql_root_password
     }
   })
 
@@ -209,8 +177,22 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
   _record_step('seed_data')
 
   try:
-    _persist_install_config(payload, host, port)
-    _write_server_file(payload, host, port)
+    _persist_install_state(payload)
+    merge_config_updates({
+      'site': {
+        'domain': payload.server_domain,
+        'ip': payload.server_ip,
+        'backend_port': payload.backend_port
+      },
+      'database': {
+        'host': host,
+        'port': port,
+        'name': payload.database_name,
+        'user': payload.database_user,
+        'password': payload.database_password,
+        'root_password': payload.mysql_root_password
+      }
+    })
     _persist_seed_files(payload, host, port)
   except PermissionError as exc:  # noqa: PERF203
     raise InstallProgressError(
@@ -220,6 +202,14 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
       code='SEED_DATA_PERMISSION_DENIED',
       command=PERMISSION_COMMAND,
       path=str(SEED_DATA_DIR)
+    ) from exc
+  except OSError as exc:  # noqa: PERF203
+    raise InstallProgressError(
+      'write_config',
+      '写入配置文件失败，请确认目录存在且有可用空间。',
+      progress,
+      code='CONFIG_WRITE_FAILED',
+      path=str(CONFIG_PATH)
     ) from exc
   _record_step('write_config')
 
