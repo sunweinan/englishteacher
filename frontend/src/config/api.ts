@@ -28,7 +28,10 @@ export const API_ENDPOINTS = {
   adminOrders: '/admin/orders',
   adminOrderDetail: (id: string) => `/admin/orders/${id}`,
   adminCourses: '/admin/courses',
-  adminCourseDetail: (id: number | string) => `/admin/courses/${id}`
+  adminCourseDetail: (id: number | string) => `/admin/courses/${id}`,
+  installStatus: '/install/status',
+  installTestDb: '/install/database/test',
+  installRun: '/install/run'
 };
 
 export function getApiEnvironment(): ApiEnvironment {

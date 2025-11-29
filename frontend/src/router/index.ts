@@ -16,6 +16,12 @@ const routes = [
     meta: { requiresAuth: false }
   },
   {
+    path: '/install',
+    name: 'install',
+    component: () => import('@/views/Install.vue'),
+    meta: { requiresAuth: false }
+  },
+  {
     path: '/auth/login',
     name: 'login',
     component: () => import('@/views/Auth/Login.vue'),
