@@ -1,87 +1,26 @@
-import pymysql
 from fastapi import HTTPException, status
-from pymysql.err import OperationalError
+from sqlalchemy import create_engine, text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.core.database import engine
 from app.installer.database_initializer import create_schema, seed_all
+from app.schemas.admin import DatabaseTestRequest, DatabaseTestResult
+from app.schemas.install import MysqlConnectionTestResult
 from app.services import system_config_service
 
-from app.schemas.admin import DatabaseTestRequest, DatabaseTestResult
 
-
-def _connect(**kwargs):
-  return pymysql.connect(connect_timeout=5, charset='utf8mb4', cursorclass=pymysql.cursors.DictCursor, **kwargs)
-
-
-def test_mysql_connection(payload: DatabaseTestRequest) -> DatabaseTestResult:
-  if not payload.host.strip():
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='请填写数据库地址后再检测。')
-  if not payload.root_password.strip():
-    raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='请填写默认 root 密码后再检测。')
-
-  root_conn = None
-  try:
-    root_conn = _connect(host=payload.host, port=payload.port, user='root', password=payload.root_password)
-    root_connected = True
-  except OperationalError as exc:  # noqa: PERF203
-    raise HTTPException(
-      status_code=status.HTTP_400_BAD_REQUEST,
-      detail='无法连接到 MySQL，请确认地址和默认 root 密码是否正确。'
-    ) from exc
-
-  database_exists = False
-  database_authenticated = False
+def test_mysql_connection(payload: DatabaseTestRequest) -> MysqlConnectionTestResult:
+  url = f"mysql+pymysql://root:{payload.root_password}@{payload.host}:{payload.port}"
+  engine = create_engine(url)
 
   try:
-    if payload.db_name and payload.db_user and payload.db_password:
-      with root_conn.cursor() as cursor:  # type: ignore[var-annotated]
-        cursor.execute('SHOW DATABASES LIKE %s', (payload.db_name,))
-        database_exists = cursor.fetchone() is not None
-
-      user_conn = None
-      try:
-        user_conn = _connect(
-          host=payload.host,
-          port=payload.port,
-          user=payload.db_user,
-          password=payload.db_password,
-          database=payload.db_name
-        )
-        database_authenticated = True
-      except OperationalError as exc:  # noqa: PERF203
-        message = exc.args[1] if len(exc.args) > 1 else str(exc)
-        raise HTTPException(
-          status_code=status.HTTP_400_BAD_REQUEST,
-          detail=f'无法使用账号 {payload.db_user} 连接数据库 {payload.db_name}：{message}'
-        ) from exc
-      finally:
-        if user_conn:
-          try:
-            user_conn.close()
-          except Exception:  # noqa: BLE001
-            pass
-
-      summary = '已成功连接 MySQL，root 密码和业务账号均可用。'
-      if not database_exists:
-        summary += ' 提醒：当前数据库名称不存在，请确认是否需要创建。'
-    else:
-      summary = '已成功连接 MySQL，root 密码可用。未提供业务数据库信息，已跳过数据库与账号验证。'
-
-    return DatabaseTestResult(
-      root_connected=root_connected,
-      database_exists=database_exists,
-      database_authenticated=database_authenticated,
-      message=summary
-    )
-  finally:
-    if root_conn:
-      try:
-        root_conn.close()
-      except Exception:  # noqa: BLE001
-        pass
+    with engine.connect() as conn:
+      conn.execute(text('SELECT 1'))
+    return DatabaseTestResult(success=True, error=None)
+  except Exception as exc:  # noqa: BLE001
+    return DatabaseTestResult(success=False, error=str(exc))
 
 
 def initialize_seed_data(db: Session, *, overwrite_existing: bool = False) -> dict:

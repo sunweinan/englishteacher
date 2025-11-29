@@ -27,15 +27,15 @@ def install_status():
 
 @router.post('/database/test', response_model=MysqlConnectionTestResult)
 def install_test_database(payload: MysqlConnectionTestRequest):
-  url = f"mysql+pymysql://root:{payload.password}@{payload.host}:{payload.port}"
+  url = f"mysql+pymysql://root:{payload.root_password}@{payload.host}:{payload.port}"
   engine = create_engine(url)
 
   try:
     with engine.connect() as conn:
       conn.execute(text('SELECT 1'))
-    return {'success': True}
+    return MysqlConnectionTestResult(success=True, error=None)
   except Exception as exc:  # noqa: BLE001
-    return {'success': False, 'error': str(exc)}
+    return MysqlConnectionTestResult(success=False, error=str(exc))
 
 
 @router.post('/run', response_model=InstallResult)
