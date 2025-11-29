@@ -2,11 +2,11 @@
   "installed": true,
   "config": {
     "database": {
-      "host": "db",
+      "host": "127.0.0.1",
       "port": 3306,
-      "name": "englishteacher",
-      "user": "user",
-      "password": "password",
+      "name": "enTeacher",
+      "user": "admin",
+      "password": "123456",
       "root_password": "Ad123456"
     },
     "site": {
@@ -17,7 +17,7 @@
   },
   "admin": {
     "username": "admin",
-    "password": "admin123"
+    "password": "123456"
   },
   "integrations": {
     "wechat": {

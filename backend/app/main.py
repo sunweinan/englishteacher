@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.config import settings
-from app.routes import admin, auth, courses, install, orders, payments, products
+from app.routes import admin, auth, courses, orders, payments, products
 from app.core.database import init_db
 from app.core.exceptions import add_exception_handlers
 
@@ -22,7 +22,6 @@ def create_app() -> FastAPI:
     app.state.db_ready = False
     app.state.db_error = str(exc)
 
-  app.include_router(install.router)
   app.include_router(auth.router, prefix='/auth', tags=['auth'])
   app.include_router(products.router, prefix='/products', tags=['products'])
   app.include_router(orders.router, prefix='/orders', tags=['orders'])
