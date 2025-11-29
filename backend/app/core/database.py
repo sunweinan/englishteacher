@@ -1,3 +1,5 @@
+"""数据库初始化和 Session 管理工具。"""
+
 from sqlalchemy import create_engine, text
 from sqlalchemy.engine.url import make_url
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
@@ -6,6 +8,13 @@ from app.config import settings
 
 
 def _ensure_database_exists() -> None:
+  """确保目标数据库存在，不存在时尝试创建。
+
+  通过读取配置中的连接串拆分出数据库名与服务器地址，
+  先连接到服务器级别再执行 `CREATE DATABASE` 语句，
+  以便安装流程尚未运行时也能正常启动后续逻辑。
+  """
+
   try:
     url = make_url(settings.database_url)
     database_name = url.database
@@ -30,6 +39,8 @@ Base = declarative_base()
 
 
 def get_db() -> Session:
+  """FastAPI 依赖：提供请求级数据库会话，并在响应后关闭。"""
+
   db = SessionLocal()
   try:
     yield db
@@ -38,5 +49,7 @@ def get_db() -> Session:
 
 
 def init_db():
+  """导入模型并创建所有数据表。"""
+
   import app.models  # noqa: F401
   Base.metadata.create_all(bind=engine)

@@ -1,19 +1,21 @@
+"""用户认证与授权相关的业务逻辑。"""
+
 from datetime import datetime, timedelta
 from typing import Dict, Optional, Tuple
 import secrets
 
+from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from jose import jwt
 from passlib.context import CryptContext
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, status, Depends
-from fastapi.security import OAuth2PasswordBearer
 
 from app.config import settings
+from app.core.database import get_db
 from app.core.install_state import load_install_state
 from app.models.user import User
 from app.schemas.user import UserCreate
-from app.core.database import get_db
 
 pwd_context = CryptContext(schemes=['pbkdf2_sha256', 'bcrypt'], deprecated='auto')
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl='/auth/login')
@@ -23,6 +25,8 @@ _code_store: Dict[str, Tuple[str, datetime]] = {}
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
+  """校验明文密码与哈希是否匹配，兼容异常或旧格式。"""
+
   if not hashed_password:
     return False
 
@@ -37,10 +41,14 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 
 def get_password_hash(password: str) -> str:
+  """生成密码哈希。"""
+
   return pwd_context.hash(password)
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+  """根据负载生成 JWT 访问令牌，可选自定义过期时间。"""
+
   to_encode = data.copy()
   expire = datetime.utcnow() + (expires_delta or timedelta(minutes=settings.access_token_expire_minutes))
   to_encode.update({"exp": expire})
@@ -48,6 +56,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
 
 
 def _load_default_admin() -> tuple[str | None, str | None]:
+  """从安装配置中加载默认管理员账户。"""
+
   state = load_install_state()
   admin_config = state.get('admin') if isinstance(state, dict) else {}
   if isinstance(admin_config, dict):
@@ -58,6 +68,8 @@ def _load_default_admin() -> tuple[str | None, str | None]:
 
 
 def _build_fallback_admin(username: str, password: str) -> User:
+  """当数据库不可用时构造临时管理员对象。"""
+
   return User(
     username=username,
     phone=None,
@@ -69,7 +81,7 @@ def _build_fallback_admin(username: str, password: str) -> User:
 
 
 def admin_login(db: Session, username: str, password: str) -> tuple[User, bool]:
-  """Authenticate admin using database credentials, with a file-based fallback."""
+  """管理员登录，返回用户对象及是否为默认账户标记。"""
 
   db_error: SQLAlchemyError | None = None
   user: User | None = None
@@ -93,10 +105,14 @@ def admin_login(db: Session, username: str, password: str) -> tuple[User, bool]:
 
 
 def build_token_payload(user: User) -> dict:
+  """构建 JWT 负载，包含用户名与角色。"""
+
   return {'sub': user.username, 'role': user.role}
 
 
 def authenticate_user(db: Session, username: str, password: str) -> User:
+  """使用数据库校验普通用户登录。"""
+
   user = db.query(User).filter(User.username == username).first()
   if not user or not verify_password(password, user.password_hash):
     raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Incorrect username or password')
@@ -104,6 +120,8 @@ def authenticate_user(db: Session, username: str, password: str) -> User:
 
 
 def send_verification_code(phone: str) -> str:
+  """生成并暂存手机验证码，简单校验号码格式。"""
+
   if not phone.isdigit() or len(phone) < 4 or len(phone) > 20:
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='手机号格式不正确')
   code = f"{secrets.randbelow(1000000):06d}"
@@ -112,6 +130,8 @@ def send_verification_code(phone: str) -> str:
 
 
 def _ensure_code_valid(phone: str, code: str) -> None:
+  """校验验证码是否存在、未过期且匹配。"""
+
   stored = _code_store.get(phone)
   if not stored:
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='请先获取验证码')
@@ -123,6 +143,8 @@ def _ensure_code_valid(phone: str, code: str) -> None:
 
 
 def login_with_phone_code(db: Session, phone: str, code: str) -> User:
+  """使用验证码登录或注册用户，必要时创建新账户。"""
+
   _ensure_code_valid(phone, code)
   _code_store.pop(phone, None)
   db_error: SQLAlchemyError | None = None
@@ -154,6 +176,8 @@ def login_with_phone_code(db: Session, phone: str, code: str) -> User:
 
 
 def register_user(db: Session, user_in: UserCreate) -> User:
+  """注册新用户，包含会员有效期解析与唯一性校验。"""
+
   if db.query(User).filter(User.username == user_in.username).first():
     raise HTTPException(status_code=400, detail='Username already exists')
   phone = user_in.phone or user_in.username
@@ -180,6 +204,8 @@ def register_user(db: Session, user_in: UserCreate) -> User:
 
 
 def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)) -> User:
+  """解析 JWT 并返回当前用户，数据库不可用时返回 503。"""
+
   try:
     payload = jwt.decode(token, settings.jwt_secret, algorithms=[settings.jwt_algorithm])
     username: str | None = payload.get('sub')
