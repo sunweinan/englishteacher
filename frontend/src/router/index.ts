@@ -1,19 +1,12 @@
 import { createRouter, createWebHistory } from 'vue-router';
 import { useUserStore } from '@/store/user';
 import { useAdminAuthStore } from '@/store/adminAuth';
-import { fetchInstallStatus } from '@/utils/install';
 
 const routes = [
   {
     path: '/',
     name: 'home',
     component: () => import('@/views/Home.vue'),
-    meta: { requiresAuth: false }
-  },
-  {
-    path: '/install',
-    name: 'install',
-    component: () => import('@/views/Install/InstallWizard.vue'),
     meta: { requiresAuth: false }
   },
   {
@@ -85,31 +78,7 @@ const router = createRouter({
   routes
 });
 
-let installChecked = false;
-let installRequired = false;
-
-const ensureInstallReady = async () => {
-  if (installChecked) return installRequired;
-  try {
-    const { data } = await fetchInstallStatus();
-    installRequired = !data.connected || !data.installed;
-  } catch (error) {
-    console.error('Install status check failed', error);
-    installRequired = false;
-  }
-  installChecked = true;
-  return installRequired;
-};
-
 router.beforeEach(async (to, _from, next) => {
-  if (to.name !== 'install') {
-    const needsInstall = await ensureInstallReady();
-    if (needsInstall) {
-      next({ name: 'install', query: { redirect: to.fullPath } });
-      return;
-    }
-  }
-
   const userStore = useUserStore();
   const adminStore = useAdminAuthStore();
 

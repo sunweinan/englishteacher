@@ -10,6 +10,7 @@ from fastapi import HTTPException, status, Depends
 from fastapi.security import OAuth2PasswordBearer
 
 from app.config import settings
+from app.core.install_state import load_install_state
 from app.models.user import User
 from app.schemas.user import UserCreate
 from app.core.database import get_db
@@ -46,8 +47,30 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
   return jwt.encode(to_encode, settings.jwt_secret, algorithm=settings.jwt_algorithm)
 
 
+def _load_default_admin() -> tuple[str | None, str | None]:
+  state = load_install_state()
+  admin_config = state.get('admin') if isinstance(state, dict) else {}
+  if isinstance(admin_config, dict):
+    username = admin_config.get('username')
+    password = admin_config.get('password')
+    return str(username) if username else None, str(password) if password else None
+  return None, None
+
+
+def _build_fallback_admin(username: str, password: str) -> User:
+  return User(
+    username=username,
+    phone=None,
+    password_hash=get_password_hash(password),
+    role='admin',
+    membership_level=DEFAULT_MEMBERSHIP,
+    membership_expires_at=None
+  )
+
+
 def admin_login(db: Session, username: str, password: str) -> tuple[User, bool]:
-  """Authenticate admin strictly against stored database credentials."""
+  """Authenticate admin using database credentials, with a file-based fallback."""
+
   db_error: SQLAlchemyError | None = None
   user: User | None = None
   try:
@@ -55,16 +78,18 @@ def admin_login(db: Session, username: str, password: str) -> tuple[User, bool]:
   except SQLAlchemyError as exc:  # noqa: PERF203
     db_error = exc
 
+  if user and verify_password(password, user.password_hash):
+    if user.role != 'admin':
+      raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Not enough permissions')
+    return user, False
+
   if db_error:
+    default_username, default_password = _load_default_admin()
+    if default_username and default_password and username == default_username and password == default_password:
+      return _build_fallback_admin(default_username, default_password), True
     raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, detail='数据库连接失败，请稍后重试') from db_error
 
-  if not user or not verify_password(password, user.password_hash):
-    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Incorrect username or password')
-
-  if user.role != 'admin':
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Not enough permissions')
-
-  return user, False
+  raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Incorrect username or password')
 
 
 def build_token_payload(user: User) -> dict:
