@@ -126,16 +126,21 @@ def _assert_root_connection(engine, progress: list[Dict[str, str]]) -> None:
     raise InstallProgressError('connect_root', message, progress) from exc
 
 
-def _create_database_and_user(root_engine, payload: InstallRequest, host: str) -> None:
+def _create_database_and_user(root_engine, payload: InstallRequest, host: str) -> bool:
   db_name = payload.database_name
   db_user = payload.database_user
   db_password = payload.database_password
   with root_engine.connect() as conn:
+    existing = conn.execute(
+      text('SELECT 1 FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = :db'),
+      {'db': db_name}
+    ).scalar()
     conn.execute(text(f"CREATE DATABASE IF NOT EXISTS `{db_name}` CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"))
     conn.execute(text(f"CREATE USER IF NOT EXISTS '{db_user}'@'%' IDENTIFIED BY :pwd"), {'pwd': db_password})
     conn.execute(text(f"ALTER USER '{db_user}'@'%' IDENTIFIED BY :pwd"), {'pwd': db_password})
     conn.execute(text(f"GRANT ALL PRIVILEGES ON `{db_name}`.* TO '{db_user}'@'%'"))
     conn.execute(text('FLUSH PRIVILEGES'))
+    return bool(existing)
 
 
 def run_installation(payload: InstallRequest) -> Dict[str, Any]:
@@ -151,7 +156,7 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
   _record_step('connect_root')
 
   try:
-    _create_database_and_user(root_engine, payload, host)
+    db_existed = _create_database_and_user(root_engine, payload, host)
   except OperationalError as exc:  # noqa: PERF203
     message = '创建数据库或账号失败，请确认 root 权限。'
     raise InstallProgressError('provision_db', message, progress) from exc
@@ -159,7 +164,8 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
 
   app_engine = _create_app_engine(host, port, payload.database_user, payload.database_password, payload.database_name)
   try:
-    _assert_database_empty(app_engine, progress)
+    if db_existed:
+      _assert_database_empty(app_engine, progress)
     SessionLocal = create_schema(app_engine)
   except OperationalError as exc:  # noqa: PERF203
     raise InstallProgressError('init_schema', '业务账号无法连接数据库，请检查账号密码或授权。', progress) from exc

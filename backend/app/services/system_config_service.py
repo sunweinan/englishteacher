@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Dict, Tuple
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from fastapi import HTTPException, status
 
@@ -126,27 +127,30 @@ def _build_defaults_from_server_config() -> Dict[str, str | int]:
 
 def get_config(db: Session) -> Dict[str, str | int]:
   data: Dict[str, str | int] = _build_defaults_from_server_config()
-  for field, (category, key) in _SETTING_KEYS.items():
-    stored = _get_setting(db, category, key)
-    if stored is None:
-      continue
-    if field == 'db_port':
-      try:
-        data[field] = int(stored)
-      except (TypeError, ValueError):
+  try:
+    for field, (category, key) in _SETTING_KEYS.items():
+      stored = _get_setting(db, category, key)
+      if stored is None:
         continue
-    else:
-      data[field] = stored
-  wechat_config = _get_integration_config(db, 'wechat_pay')
-  sms_config = _get_integration_config(db, 'sms')
+      if field == 'db_port':
+        try:
+          data[field] = int(stored)
+        except (TypeError, ValueError):
+          continue
+      else:
+        data[field] = stored
+    wechat_config = _get_integration_config(db, 'wechat_pay')
+    sms_config = _get_integration_config(db, 'sms')
 
-  data['wechat_app_id'] = wechat_config.get('appId', '')
-  data['wechat_mch_id'] = wechat_config.get('mchId', '')
-  data['wechat_api_key'] = wechat_config.get('apiKey', '')
+    data['wechat_app_id'] = wechat_config.get('appId', '')
+    data['wechat_mch_id'] = wechat_config.get('mchId', '')
+    data['wechat_api_key'] = wechat_config.get('apiKey', '')
 
-  data['sms_provider'] = sms_config.get('provider', '')
-  data['sms_api_key'] = sms_config.get('apiKey', '')
-  data['sms_sign_name'] = sms_config.get('signName', '')
+    data['sms_provider'] = sms_config.get('provider', '')
+    data['sms_api_key'] = sms_config.get('apiKey', '')
+    data['sms_sign_name'] = sms_config.get('signName', '')
+  except SQLAlchemyError:
+    return data
   return data
 
 
