@@ -66,16 +66,21 @@ def _create_app_engine(host: str, port: int, user: str, password: str, db_name: 
   )
 
 
-def _assert_database_empty(engine, progress: list[Dict[str, str]]) -> None:
+def _database_has_existing_data(engine) -> bool:
+  """Return True if the target database already contains rows in the users table."""
+
   inspector = inspect(engine)
   existing_tables = inspector.get_table_names()
-  if existing_tables:
-    raise InstallProgressError(
-      'init_schema',
-      '检测到目标数据库已存在数据表，请使用全新空数据库或清空后再安装。',
-      progress,
-      code='DATABASE_NOT_EMPTY'
-    )
+  if 'users' not in existing_tables:
+    return False
+
+  try:
+    with engine.connect() as conn:
+      count = conn.execute(text('SELECT COUNT(*) FROM users')).scalar()
+      return bool(count and count > 0)
+  except Exception:  # noqa: BLE001
+    # If we cannot confidently inspect the existing data, err on the side of skipping seeding
+    return True
 
 
 def _persist_install_state(payload: InstallRequest) -> None:
@@ -156,16 +161,16 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
   _record_step('connect_root')
 
   try:
-    db_existed = _create_database_and_user(root_engine, payload, host)
+    _create_database_and_user(root_engine, payload, host)
   except OperationalError as exc:  # noqa: PERF203
     message = '创建数据库或账号失败，请确认 root 权限。'
     raise InstallProgressError('provision_db', message, progress) from exc
   _record_step('provision_db')
 
   app_engine = _create_app_engine(host, port, payload.database_user, payload.database_password, payload.database_name)
+  db_has_data = False
   try:
-    if db_existed:
-      _assert_database_empty(app_engine, progress)
+    db_has_data = _database_has_existing_data(app_engine)
     SessionLocal = create_schema(app_engine)
   except OperationalError as exc:  # noqa: PERF203
     raise InstallProgressError('init_schema', '业务账号无法连接数据库，请检查账号密码或授权。', progress) from exc
@@ -173,22 +178,23 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
 
   db: Session = SessionLocal()
   try:
-    seed_all(db, admin_payload={'username': payload.admin_username, 'password': payload.admin_password}, settings_overrides={
-      'domain': payload.server_domain,
-      'ip': payload.server_ip,
-      'backend_port': str(payload.backend_port)
-    }, integrations={
-      'wechat': {
-        'app_id': payload.wechat_app_id,
-        'mch_id': payload.wechat_mch_id,
-        'api_key': payload.wechat_api_key
-      },
-      'sms': {
-        'provider': payload.sms_provider,
-        'api_key': payload.sms_api_key,
-        'sign_name': payload.sms_sign_name
-      }
-    })
+    if not db_has_data:
+      seed_all(db, admin_payload={'username': payload.admin_username, 'password': payload.admin_password}, settings_overrides={
+        'domain': payload.server_domain,
+        'ip': payload.server_ip,
+        'backend_port': str(payload.backend_port)
+      }, integrations={
+        'wechat': {
+          'app_id': payload.wechat_app_id,
+          'mch_id': payload.wechat_mch_id,
+          'api_key': payload.wechat_api_key
+        },
+        'sms': {
+          'provider': payload.sms_provider,
+          'api_key': payload.sms_api_key,
+          'sign_name': payload.sms_sign_name
+        }
+      })
   except PermissionError as exc:  # noqa: PERF203
     raise InstallProgressError('seed_data', '写入数据库时权限不足，请检查账户授权。', progress) from exc
   finally:
