@@ -260,11 +260,7 @@ watch(
 );
 
 onMounted(async () => {
-  const ok = await userStore.ensureProfileLoaded();
-  if (!ok) {
-    router.push({ name: 'login', query: { redirect: router.currentRoute.value.fullPath } });
-    return;
-  }
+  await userStore.ensureProfileLoaded();
   coursesStore.fetchCourses().then(() => {
     filteredCourses.value = coursesStore.courses;
     resetAndLoad();
