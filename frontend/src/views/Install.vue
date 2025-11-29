@@ -19,18 +19,10 @@
     <div class="form-grid">
       <el-card class="form-card" shadow="never">
         <template #header>
-          <div class="card-title">服务器与数据库</div>
+          <div class="card-title">数据库连接测试</div>
         </template>
+        <p class="card-help">仅使用 root 账号测试 MySQL 是否连通，无需填写业务库或检查表结构。</p>
         <el-form label-width="120px" label-position="left" class="install-form">
-          <el-form-item label="服务器域名">
-            <el-input v-model="form.server_domain" placeholder="例如：example.com" />
-          </el-form-item>
-          <el-form-item label="服务器 IP">
-            <el-input v-model="form.server_ip" placeholder="127.0.0.1" />
-          </el-form-item>
-          <el-form-item label="后端端口">
-            <el-input v-model.number="form.backend_port" placeholder="8001" />
-          </el-form-item>
           <el-form-item label="MySQL 主机">
             <el-input v-model="form.mysql_host" placeholder="127.0.0.1" />
           </el-form-item>
@@ -39,18 +31,6 @@
           </el-form-item>
           <el-form-item label="Root 密码">
             <el-input v-model="form.mysql_root_password" type="password" show-password placeholder="数据库 root 密码" />
-          </el-form-item>
-          <el-form-item label="数据库名称">
-            <el-input v-model="form.database_name" />
-          </el-form-item>
-          <el-form-item label="业务账号">
-            <el-input v-model="form.database_user" />
-          </el-form-item>
-          <el-form-item label="业务密码">
-            <el-input v-model="form.database_password" type="password" show-password />
-          </el-form-item>
-          <el-form-item label="MySQL URL (可选)">
-            <el-input v-model="form.mysql_url" placeholder="mysql+pymysql://user:pwd@host:3306/db" />
           </el-form-item>
           <div class="form-actions">
             <el-button type="primary" :loading="testing" @click="testDatabase">
@@ -62,13 +42,12 @@
             v-if="testResult"
             class="test-result"
             :closable="false"
-            :type="testResult.root_connected && testResult.database_authenticated ? 'success' : 'warning'"
-            :title="testResult.message"
+            :type="testResult.root_connected ? 'success' : 'warning'"
+            :title="testResult.message || '已完成 root 连接验证，已跳过业务数据库检查。'"
           >
             <div class="test-grid">
               <span>Root 连接：{{ testResult.root_connected ? '正常' : '失败' }}</span>
-              <span>数据库存在：{{ testResult.database_exists ? '是' : '否' }}</span>
-              <span>业务账号：{{ testResult.database_authenticated ? '可连接' : '不可连接' }}</span>
+              <span class="muted">业务库及账号检查已跳过</span>
             </div>
           </el-alert>
         </el-form>
@@ -76,48 +55,91 @@
 
       <el-card class="form-card" shadow="never">
         <template #header>
-          <div class="card-title">管理员与集成</div>
+          <div class="card-title">数据库与站点配置</div>
         </template>
+        <p class="card-help" :class="{ muted: !canConfigure }">
+          先完成 root 连接测试，再配置站点信息和业务数据库，安装时将写入配置文件并初始化数据库。
+        </p>
         <el-form label-width="120px" label-position="left" class="install-form">
-          <el-form-item label="管理员账号">
-            <el-input v-model="form.admin_username" />
+          <el-form-item label="服务器域名">
+            <el-input v-model="form.server_domain" :disabled="!canConfigure" placeholder="例如：example.com" />
           </el-form-item>
-          <el-form-item label="管理员密码">
-            <el-input v-model="form.admin_password" type="password" show-password />
+          <el-form-item label="服务器 IP">
+            <el-input v-model="form.server_ip" :disabled="!canConfigure" placeholder="127.0.0.1" />
           </el-form-item>
-          <el-divider />
-          <el-form-item label="微信 AppID">
-            <el-input v-model="form.wechat_app_id" />
-          </el-form-item>
-          <el-form-item label="微信商户号">
-            <el-input v-model="form.wechat_mch_id" />
-          </el-form-item>
-          <el-form-item label="微信 API Key">
-            <el-input v-model="form.wechat_api_key" type="password" show-password />
+          <el-form-item label="后端端口">
+            <el-input v-model.number="form.backend_port" :disabled="!canConfigure" placeholder="8001" />
           </el-form-item>
           <el-divider />
-          <el-form-item label="短信服务商">
-            <el-input v-model="form.sms_provider" />
+          <el-form-item label="数据库名称">
+            <el-input v-model="form.database_name" :disabled="!canConfigure" />
           </el-form-item>
-          <el-form-item label="短信 API Key">
-            <el-input v-model="form.sms_api_key" type="password" show-password />
+          <el-form-item label="业务账号">
+            <el-input v-model="form.database_user" :disabled="!canConfigure" />
           </el-form-item>
-          <el-form-item label="短信签名">
-            <el-input v-model="form.sms_sign_name" />
+          <el-form-item label="业务密码">
+            <el-input v-model="form.database_password" :disabled="!canConfigure" type="password" show-password />
           </el-form-item>
-          <div class="form-actions">
-            <el-button type="primary" :loading="installing" @click="runInstall">开始安装</el-button>
-            <el-button :loading="statusLoading" @click="fetchStatus">刷新状态</el-button>
-          </div>
-          <p v-if="errorMessage" class="error-hint">{{ errorMessage }}</p>
+          <el-form-item label="MySQL URL (可选)">
+            <el-input
+              v-model="form.mysql_url"
+              :disabled="!canConfigure"
+              placeholder="mysql+pymysql://user:pwd@host:3306/db"
+            />
+          </el-form-item>
         </el-form>
       </el-card>
     </div>
+
+    <el-card class="form-card" shadow="never">
+      <template #header>
+        <div class="card-title">管理员与集成</div>
+      </template>
+      <p class="card-help" :class="{ muted: !canConfigure }">
+        Root 连接成功后继续配置管理员账号与第三方集成，完成后将自动写入配置并初始化数据库。
+      </p>
+      <el-form label-width="120px" label-position="left" class="install-form">
+        <el-form-item label="管理员账号">
+          <el-input v-model="form.admin_username" :disabled="!canConfigure" />
+        </el-form-item>
+        <el-form-item label="管理员密码">
+          <el-input v-model="form.admin_password" :disabled="!canConfigure" type="password" show-password />
+        </el-form-item>
+        <el-divider />
+        <el-form-item label="微信 AppID">
+          <el-input v-model="form.wechat_app_id" :disabled="!canConfigure" />
+        </el-form-item>
+        <el-form-item label="微信商户号">
+          <el-input v-model="form.wechat_mch_id" :disabled="!canConfigure" />
+        </el-form-item>
+        <el-form-item label="微信 API Key">
+          <el-input v-model="form.wechat_api_key" :disabled="!canConfigure" type="password" show-password />
+        </el-form-item>
+        <el-divider />
+        <el-form-item label="短信服务商">
+          <el-input v-model="form.sms_provider" :disabled="!canConfigure" />
+        </el-form-item>
+        <el-form-item label="短信 API Key">
+          <el-input v-model="form.sms_api_key" :disabled="!canConfigure" type="password" show-password />
+        </el-form-item>
+        <el-form-item label="短信签名">
+          <el-input v-model="form.sms_sign_name" :disabled="!canConfigure" />
+        </el-form-item>
+        <div class="form-actions">
+          <el-button type="primary" :loading="installing" :disabled="!canConfigure" @click="runInstall">开始安装</el-button>
+          <el-button :loading="statusLoading" @click="fetchStatus">刷新状态</el-button>
+        </div>
+        <p v-if="errorMessage" class="error-hint">{{ errorMessage }}</p>
+      </el-form>
+    </el-card>
 
     <el-card class="progress-card" shadow="never">
       <template #header>
         <div class="card-title">安装进度</div>
       </template>
+      <p class="card-help">
+        安装会依次写入数据库配置、使用预装模块初始化数据库（如已存在将提示），完成后跳转至管理员后台登录页面。
+      </p>
       <el-empty v-if="!progress.length" description="尚未开始安装" />
       <el-timeline v-else>
         <el-timeline-item
@@ -137,7 +159,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
+import { useRouter } from 'vue-router';
 import { ElMessage } from 'element-plus';
 import http from '@/utils/http';
 import { API_ENDPOINTS } from '@/config/api';
@@ -150,6 +173,7 @@ const installing = ref(false);
 const testResult = ref<DatabaseTestResult | null>(null);
 const progress = ref<InstallProgressStep[]>([]);
 const errorMessage = ref<string | null>(null);
+const router = useRouter();
 
 const form = reactive<InstallForm>({
   server_domain: window.location.hostname || 'localhost',
@@ -171,6 +195,8 @@ const resetProgress = () => {
   errorMessage.value = null;
 };
 
+const canConfigure = computed(() => Boolean(testResult.value?.root_connected || status.value?.connected));
+
 const fetchStatus = async () => {
   statusLoading.value = true;
   try {
@@ -186,9 +212,6 @@ const fetchStatus = async () => {
 const buildDatabaseTestPayload = () => ({
   host: form.mysql_host,
   port: form.mysql_port,
-  db_name: form.database_name,
-  db_user: form.database_user,
-  db_password: form.database_password,
   root_password: form.mysql_root_password
 });
 
@@ -244,6 +267,9 @@ const runInstall = async () => {
     progress.value = data.progress || [];
     ElMessage.success(data.message);
     await fetchStatus();
+    if (data.next_url) {
+      await router.push(data.next_url);
+    }
   } catch (error: any) {
     const detail = error?.response?.data?.detail;
     if (typeof detail === 'object' && detail) {
@@ -272,6 +298,17 @@ onMounted(fetchStatus);
 
 .status-card {
   border-radius: 8px;
+}
+
+.card-help {
+  margin: 0 0 8px;
+  color: #909399;
+  line-height: 1.5;
+  font-size: 13px;
+}
+
+.card-help.muted {
+  color: #c0c4cc;
 }
 
 .status-header {
@@ -330,6 +367,10 @@ onMounted(fetchStatus);
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 4px;
   margin-top: 6px;
+}
+
+.muted {
+  color: #a0a0a0;
 }
 
 .progress-card {
