@@ -20,7 +20,18 @@ router = APIRouter(prefix='/install', tags=['install'])
 def install_status():
   installed_state = load_install_state()
   installed = bool(installed_state.get('installed')) if isinstance(installed_state, dict) else False
-  connected = installer_service.test_mysql_connection(settings.database_url)
+
+  connected = False
+  if settings.database_url:
+    # 使用一次性 engine 检查当前配置的数据库连通性，避免影响全局数据库实例
+    try:
+      temp_engine = create_engine(settings.database_url)
+      with temp_engine.connect() as conn:
+        conn.execute(text('SELECT 1'))
+      connected = True
+    except Exception:  # noqa: BLE001
+      connected = False
+
   message = '数据库已连接' if connected else '尚未连接到数据库，需执行安装向导。'
   return {'connected': connected, 'installed': installed, 'message': message}
 

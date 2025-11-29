@@ -27,7 +27,7 @@ def create_app() -> FastAPI:
   app.include_router(orders.router, prefix='/orders', tags=['orders'])
   app.include_router(payments.router, prefix='/payments', tags=['payments'])
   app.include_router(courses.router, prefix='/courses', tags=['courses'])
-  app.include_router(install.router, prefix='/install', tags=['install'])
+  app.include_router(install.router)
   app.include_router(admin.router, prefix='/admin', tags=['admin'])
   add_exception_handlers(app)
   return app
