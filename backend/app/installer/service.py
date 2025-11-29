@@ -9,9 +9,10 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.config_store import CONFIG_PATH, merge_config_updates
-from app.core.install_state import INSTALL_STATE_PATH, save_install_state
+from app.core.install_state import save_install_state
 from app.schemas.install import InstallRequest
-from app.installer.database_initializer import create_schema, seed_all
+from app.installer import seeder
+from app.installer.database_initializer import create_schema
 from app.utils.seed_data import PERMISSION_COMMAND, SEED_DATA_DIR, persist_seed_config
 
 
@@ -46,15 +47,16 @@ def _create_root_engine(host: str, port: int, root_password: str):
     echo=False,
     future=True,
     isolation_level='AUTOCOMMIT'
-)
+  )
 
 
 STEP_LABELS = {
-  'connect_root': '登录 MySQL root',
-  'provision_db': '创建数据库和账号',
+  'connect_root': '验证 root 账号密码',
+  'provision_db': '创建数据库实例和业务账号',
   'init_schema': '初始化表结构',
-  'seed_data': '写入预置数据',
-  'write_config': '写入配置文件'
+  'save_admin': '创建后台管理员并同步基础配置',
+  'seed_data': '导入预装数据',
+  'write_config': '保存安装配置文件'
 }
 
 
@@ -76,8 +78,9 @@ def _database_has_existing_data(engine) -> bool:
 
   try:
     with engine.connect() as conn:
-      count = conn.execute(text('SELECT COUNT(*) FROM users')).scalar()
-      return bool(count and count > 0)
+      # 使用轻量查询判断是否已有业务数据，避免全表扫描
+      first_row = conn.execute(text('SELECT 1 FROM users LIMIT 1')).first()
+      return first_row is not None
   except Exception:  # noqa: BLE001
     # If we cannot confidently inspect the existing data, err on the side of skipping seeding
     return True
@@ -148,8 +151,39 @@ def _create_database_and_user(root_engine, payload: InstallRequest, host: str) -
     return bool(existing)
 
 
+def _seed_core_records(db: Session, admin_payload: Dict[str, str], settings_overrides: Dict[str, Any],
+                       integrations: Dict[str, Dict[str, Any]]) -> None:
+  """Persist administrator,基础设置与集成配置到数据库。"""
+
+  seeder.seed_users(db, admin_payload)
+  seeder.seed_settings(db, settings_overrides, overwrite_existing=True)
+  seeder.seed_integrations(
+    db,
+    integrations.get('wechat', {}),
+    integrations.get('sms', {}),
+    overwrite_existing=True,
+  )
+
+
+def _seed_preinstall_payload(db: Session, admin_payload: Dict[str, str], settings_overrides: Dict[str, Any],
+                             integrations: Dict[str, Dict[str, Any]]) -> None:
+  """Import predefined seed data into the database."""
+
+  _ = admin_payload
+  _ = settings_overrides
+  _ = integrations
+  seeder.seed_products(db)
+  seeder.seed_admin_users(db, overwrite_existing=True)
+  seeder.seed_membership_settings(db, overwrite_existing=True)
+  seeder.seed_recharge_records(db, overwrite_existing=True)
+  seeder.seed_dashboard_stats(db, overwrite_existing=True)
+  seeder.seed_admin_orders(db, overwrite_existing=True)
+  seeder.seed_courses(db, overwrite_existing=True)
+
+
 def run_installation(payload: InstallRequest) -> Dict[str, Any]:
   progress: list[Dict[str, str]] = []
+  seed_skipped = False
 
   def _record_step(step: str) -> None:
     if step in STEP_LABELS:
@@ -163,12 +197,11 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
   try:
     _create_database_and_user(root_engine, payload, host)
   except OperationalError as exc:  # noqa: PERF203
-    message = '创建数据库或账号失败，请确认 root 权限。'
+    message = '创建数据库或账号失败，请确认 root 账户有建库和授权权限。'
     raise InstallProgressError('provision_db', message, progress) from exc
   _record_step('provision_db')
 
   app_engine = _create_app_engine(host, port, payload.database_user, payload.database_password, payload.database_name)
-  db_has_data = False
   try:
     db_has_data = _database_has_existing_data(app_engine)
     SessionLocal = create_schema(app_engine)
@@ -176,30 +209,46 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
     raise InstallProgressError('init_schema', '业务账号无法连接数据库，请检查账号密码或授权。', progress) from exc
   _record_step('init_schema')
 
+  admin_payload = {'username': payload.admin_username, 'password': payload.admin_password}
+  settings_overrides = {
+    'domain': payload.server_domain,
+    'ip': payload.server_ip,
+    'backend_port': str(payload.backend_port)
+  }
+  integrations = {
+    'wechat': {
+      'app_id': payload.wechat_app_id,
+      'mch_id': payload.wechat_mch_id,
+      'api_key': payload.wechat_api_key
+    },
+    'sms': {
+      'provider': payload.sms_provider,
+      'api_key': payload.sms_api_key,
+      'sign_name': payload.sms_sign_name
+    }
+  }
+
   db: Session = SessionLocal()
   try:
     if not db_has_data:
-      seed_all(db, admin_payload={'username': payload.admin_username, 'password': payload.admin_password}, settings_overrides={
-        'domain': payload.server_domain,
-        'ip': payload.server_ip,
-        'backend_port': str(payload.backend_port)
-      }, integrations={
-        'wechat': {
-          'app_id': payload.wechat_app_id,
-          'mch_id': payload.wechat_mch_id,
-          'api_key': payload.wechat_api_key
-        },
-        'sms': {
-          'provider': payload.sms_provider,
-          'api_key': payload.sms_api_key,
-          'sign_name': payload.sms_sign_name
-        }
-      })
-  except PermissionError as exc:  # noqa: PERF203
-    raise InstallProgressError('seed_data', '写入数据库时权限不足，请检查账户授权。', progress) from exc
+      try:
+        _seed_core_records(db, admin_payload, settings_overrides, integrations)
+      except Exception as exc:  # noqa: BLE001
+        message = '创建管理员或写入基础配置失败，请检查数据库权限。'
+        raise InstallProgressError('save_admin', message, progress) from exc
+      _record_step('save_admin')
+
+      try:
+        _seed_preinstall_payload(db, admin_payload, settings_overrides, integrations)
+      except PermissionError as exc:  # noqa: PERF203
+        raise InstallProgressError('seed_data', '写入数据库时权限不足，请检查账户授权。', progress) from exc
+      except Exception as exc:  # noqa: BLE001
+        raise InstallProgressError('seed_data', '导入预装数据失败，请确认数据文件和数据库结构。', progress) from exc
+      _record_step('seed_data')
+    else:
+      seed_skipped = True
   finally:
     db.close()
-  _record_step('seed_data')
 
   try:
     _persist_install_state(payload)
@@ -238,9 +287,13 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
     ) from exc
   _record_step('write_config')
 
+  completion_message = '安装完成，配置和预置数据已写入。'
+  if seed_skipped:
+    completion_message = '安装完成，检测到数据库已有数据，已跳过预装数据导入，仅同步配置。'
+
   return {
     'success': True,
-    'message': '安装完成，配置和预置数据已写入。',
+    'message': completion_message,
     'next_url': '/admin/login',
     'progress': progress
   }

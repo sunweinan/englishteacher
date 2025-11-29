@@ -21,7 +21,7 @@
         <template #header>
           <div class="card-title">数据库连接测试</div>
         </template>
-        <p class="card-help">仅使用 root 账号测试 MySQL 是否连通，无需填写业务库或检查表结构。</p>
+        <p class="card-help">步骤 1：仅使用 root 账号测试 MySQL 是否连通，确认后再继续后续步骤。</p>
         <el-form label-width="120px" label-position="left" class="install-form">
           <el-form-item label="MySQL 主机">
             <el-input v-model="form.mysql_host" placeholder="127.0.0.1" />
@@ -58,7 +58,7 @@
           <div class="card-title">数据库与站点配置</div>
         </template>
         <p class="card-help" :class="{ muted: !canConfigure }">
-          先完成 root 连接测试，再配置站点信息和业务数据库，安装时将写入配置文件并初始化数据库。
+          步骤 2：在确认 root 可用后，设置服务器信息并创建业务数据库实例与账号，安装时将写入配置文件并初始化表结构。
         </p>
         <el-form label-width="120px" label-position="left" class="install-form">
           <el-form-item label="服务器域名">
@@ -96,7 +96,7 @@
         <div class="card-title">管理员与集成</div>
       </template>
       <p class="card-help" :class="{ muted: !canConfigure }">
-        Root 连接成功后继续配置管理员账号与第三方集成，完成后将自动写入配置并初始化数据库。
+        步骤 3：配置后台管理员账号及第三方集成，系统会依次保存到数据库和预装配置文件，再导入预置数据。
       </p>
       <el-form label-width="120px" label-position="left" class="install-form">
         <el-form-item label="管理员账号">
@@ -138,7 +138,7 @@
         <div class="card-title">安装进度</div>
       </template>
       <p class="card-help">
-        安装会依次写入数据库配置、使用预装模块初始化数据库（如已存在将提示），完成后跳转至管理员后台登录页面。
+        安装会严格按步骤验证 root、创建数据库和账号、生成管理员、保存配置并导入预置数据，任何一步出错都会给出清晰提示。
       </p>
       <el-empty v-if="!progress.length" description="尚未开始安装" />
       <el-timeline v-else>
@@ -174,6 +174,15 @@ const testResult = ref<DatabaseTestResult | null>(null);
 const progress = ref<InstallProgressStep[]>([]);
 const errorMessage = ref<string | null>(null);
 const router = useRouter();
+
+const STEP_LABELS: Record<string, string> = {
+  connect_root: '验证 root 账号密码',
+  provision_db: '创建数据库实例和业务账号',
+  init_schema: '初始化表结构',
+  save_admin: '创建后台管理员并同步基础配置',
+  seed_data: '导入预装数据',
+  write_config: '保存安装配置文件'
+};
 
 const form = reactive<InstallForm>({
   server_domain: window.location.hostname || 'localhost',
@@ -219,6 +228,15 @@ const normalizeOptional = (value?: string | null) => {
   if (!value) return undefined;
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
+};
+
+const formatErrorDetail = (detail: any) => {
+  if (typeof detail === 'object' && detail) {
+    const label = detail.step ? STEP_LABELS[detail.step] || detail.step : '';
+    const stepHint = label ? `（步骤：${label}）` : '';
+    return `${detail.message || '安装失败'}${stepHint}`;
+  }
+  return typeof detail === 'string' ? detail : '安装失败';
 };
 
 const testDatabase = async () => {
@@ -272,11 +290,11 @@ const runInstall = async () => {
     }
   } catch (error: any) {
     const detail = error?.response?.data?.detail;
-    if (typeof detail === 'object' && detail) {
+    if (detail) {
       progress.value = detail.progress || progress.value;
-      errorMessage.value = detail.message || '安装失败';
+      errorMessage.value = formatErrorDetail(detail);
     } else {
-      errorMessage.value = detail || '安装失败';
+      errorMessage.value = '安装失败';
     }
     ElMessage.error(errorMessage.value || '安装失败');
   } finally {

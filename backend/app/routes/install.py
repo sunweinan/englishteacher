@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from sqlalchemy import create_engine, text
+from sqlalchemy.exc import OperationalError
 
 from app.config import settings
 from app.schemas.install import (
@@ -48,7 +49,17 @@ def install_test_database(payload: MysqlConnectionTestRequest):
       root_connected=True,
       database_exists=False,
       database_authenticated=False,
-      message='已完成 root 连接验证，已跳过业务数据库检查。'
+      message='已完成 root 连接验证，可继续创建业务数据库。'
+    )
+  except OperationalError as exc:  # noqa: PERF203
+    message = '无法连接到 MySQL，请检查主机、端口或 root 密码。'
+    if 'Access denied' in str(exc.orig):
+      message = 'root 密码错误，无法连接 MySQL。'
+    return MysqlConnectionTestResult(
+      root_connected=False,
+      database_exists=False,
+      database_authenticated=False,
+      message=message,
     )
   except Exception as exc:  # noqa: BLE001
     return MysqlConnectionTestResult(
