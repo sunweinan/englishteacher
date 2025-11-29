@@ -1,11 +1,17 @@
 from fastapi import APIRouter, HTTPException
 
+from sqlalchemy import create_engine, text
+
 from app.config import settings
-from app.schemas.admin import DatabaseTestRequest, DatabaseTestResult
-from app.schemas.install import InstallRequest, InstallResult, InstallStatus
+from app.schemas.install import (
+  InstallRequest,
+  InstallResult,
+  InstallStatus,
+  MysqlConnectionTestRequest,
+  MysqlConnectionTestResult,
+)
 from app.installer import service as installer_service
 from app.core.install_state import load_install_state
-from app.services import database_service
 
 router = APIRouter(prefix='/install', tags=['install'])
 
@@ -19,9 +25,17 @@ def install_status():
   return {'connected': connected, 'installed': installed, 'message': message}
 
 
-@router.post('/database/test', response_model=DatabaseTestResult)
-def install_test_database(payload: DatabaseTestRequest):
-  return database_service.test_mysql_connection(payload)
+@router.post('/database/test', response_model=MysqlConnectionTestResult)
+def install_test_database(payload: MysqlConnectionTestRequest):
+  url = f"mysql+pymysql://root:{payload.password}@{payload.host}:{payload.port}"
+  engine = create_engine(url)
+
+  try:
+    with engine.connect() as conn:
+      conn.execute(text('SELECT 1'))
+    return {'success': True}
+  except Exception as exc:  # noqa: BLE001
+    return {'success': False, 'error': str(exc)}
 
 
 @router.post('/run', response_model=InstallResult)
