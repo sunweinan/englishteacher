@@ -3,9 +3,9 @@ from __future__ import annotations
 import json
 from typing import Dict, Tuple
 
+from fastapi import HTTPException, status
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
-from fastapi import HTTPException, status
 
 from app.models.system_setting import SystemSetting
 from app.models.integration import IntegrationConfig
