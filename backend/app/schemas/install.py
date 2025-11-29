@@ -7,6 +7,17 @@ class MysqlConnectionConfig(BaseModel):
   root_password: str = Field(..., min_length=1)
 
 
+class MysqlConnectionTestRequest(BaseModel):
+  host: str
+  port: int = 3306
+  password: str = Field(..., min_length=1)
+
+
+class MysqlConnectionTestResult(BaseModel):
+  success: bool
+  error: str | None = None
+
+
 class InstallStatus(BaseModel):
   connected: bool
   installed: bool
