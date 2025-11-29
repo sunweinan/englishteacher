@@ -4,7 +4,7 @@ from typing import Any, Dict, Tuple
 from urllib.parse import urlparse
 
 from fastapi import HTTPException, status
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, inspect, text
 from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
@@ -64,6 +64,18 @@ def _create_app_engine(host: str, port: int, user: str, password: str, db_name: 
     echo=False,
     future=True
   )
+
+
+def _assert_database_empty(engine, progress: list[Dict[str, str]]) -> None:
+  inspector = inspect(engine)
+  existing_tables = inspector.get_table_names()
+  if existing_tables:
+    raise InstallProgressError(
+      'init_schema',
+      '检测到目标数据库已存在数据表，请使用全新空数据库或清空后再安装。',
+      progress,
+      code='DATABASE_NOT_EMPTY'
+    )
 
 
 def _persist_install_state(payload: InstallRequest) -> None:
@@ -147,6 +159,7 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
 
   app_engine = _create_app_engine(host, port, payload.database_user, payload.database_password, payload.database_name)
   try:
+    _assert_database_empty(app_engine, progress)
     SessionLocal = create_schema(app_engine)
   except OperationalError as exc:  # noqa: PERF203
     raise InstallProgressError('init_schema', '业务账号无法连接数据库，请检查账号密码或授权。', progress) from exc
