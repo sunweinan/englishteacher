@@ -224,7 +224,8 @@ def run_installation(payload: InstallRequest) -> Dict[str, Any]:
 def test_mysql_connection(database_url: str) -> bool:
   try:
     engine = create_engine(database_url, echo=False, future=True)
-    with engine.connect():
+    with engine.connect() as conn:
+      conn.execute(text('SELECT 1'))
       return True
   except Exception:
     return False

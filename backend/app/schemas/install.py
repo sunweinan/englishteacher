@@ -10,7 +10,7 @@ class MysqlConnectionConfig(BaseModel):
 class MysqlConnectionTestRequest(BaseModel):
   host: str
   port: int = 3306
-  password: str = Field(..., min_length=1)
+  root_password: str = Field(..., min_length=1)
 
 
 class MysqlConnectionTestResult(BaseModel):

@@ -2,21 +2,13 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
+from app.schemas.install import MysqlConnectionTestRequest, MysqlConnectionTestResult
 
-class DatabaseTestRequest(BaseModel):
-  host: str = Field(..., description='MySQL server host or IP')
-  port: int = Field(3306, ge=1, le=65535, description='MySQL port')
+
+class DatabaseTestRequest(MysqlConnectionTestRequest):
   db_name: str | None = Field(None, description='Target database name')
   db_user: str | None = Field(None, description='Application database user')
   db_password: str | None = Field(None, description='Application database password')
-  root_password: str = Field(..., description='Default root password to verify')
-
-  @field_validator('host', 'root_password')
-  @classmethod
-  def _required_not_blank(cls, value: str) -> str:
-    if not str(value).strip():
-      raise ValueError('字段不能为空')
-    return value
 
   @field_validator('db_name', 'db_user', 'db_password')
   @classmethod
@@ -28,11 +20,8 @@ class DatabaseTestRequest(BaseModel):
     return value
 
 
-class DatabaseTestResult(BaseModel):
-  root_connected: bool
-  database_exists: bool
-  database_authenticated: bool
-  message: str
+class DatabaseTestResult(MysqlConnectionTestResult):
+  pass
 
 
 class SystemConfig(BaseModel):
