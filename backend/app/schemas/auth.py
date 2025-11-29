@@ -23,6 +23,7 @@ class PhoneLoginRequest(BaseModel):
 
 class LoginResponse(Token):
   user: 'UserOut'
+  newly_registered: bool = False
 
 
 from app.schemas.user import UserOut  # noqa: E402  pylint: disable=wrong-import-position

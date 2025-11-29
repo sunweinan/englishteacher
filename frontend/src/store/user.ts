@@ -74,6 +74,7 @@ export const useUserStore = defineStore('user', {
       this.memberUntil = data.user.membership_expires_at;
       this.persistProfile();
       this.setToken(this.token);
+      return Boolean(data.newly_registered);
     },
     logout() {
       this.phone = null;

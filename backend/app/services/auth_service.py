@@ -122,11 +122,12 @@ def _ensure_code_valid(phone: str, code: str) -> None:
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail='验证码错误')
 
 
-def login_with_phone_code(db: Session, phone: str, code: str) -> User:
+def login_with_phone_code(db: Session, phone: str, code: str) -> tuple[User, bool]:
   _ensure_code_valid(phone, code)
   _code_store.pop(phone, None)
   db_error: SQLAlchemyError | None = None
   user: User | None = None
+  newly_registered = False
   try:
     user = db.query(User).filter(User.phone == phone).first()
     if not user:
@@ -141,6 +142,7 @@ def login_with_phone_code(db: Session, phone: str, code: str) -> User:
       db.add(user)
       db.commit()
       db.refresh(user)
+      newly_registered = True
   except SQLAlchemyError as exc:  # noqa: PERF203
     db_error = exc
 
@@ -150,7 +152,7 @@ def login_with_phone_code(db: Session, phone: str, code: str) -> User:
   if not user:
     raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail='无法创建或获取用户')
 
-  return user
+  return user, newly_registered
 
 
 def register_user(db: Session, user_in: UserCreate) -> User:
