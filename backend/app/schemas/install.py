@@ -14,8 +14,10 @@ class MysqlConnectionTestRequest(BaseModel):
 
 
 class MysqlConnectionTestResult(BaseModel):
-  success: bool
-  error: str | None = None
+  root_connected: bool
+  database_exists: bool = False
+  database_authenticated: bool = False
+  message: str
 
 
 class InstallStatus(BaseModel):

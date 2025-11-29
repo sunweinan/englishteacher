@@ -18,9 +18,19 @@ def test_mysql_connection(payload: DatabaseTestRequest) -> MysqlConnectionTestRe
   try:
     with engine.connect() as conn:
       conn.execute(text('SELECT 1'))
-    return DatabaseTestResult(success=True, error=None)
+    return DatabaseTestResult(
+      root_connected=True,
+      database_exists=False,
+      database_authenticated=False,
+      message='已完成 root 连接验证，已跳过业务数据库检查。'
+    )
   except Exception as exc:  # noqa: BLE001
-    return DatabaseTestResult(success=False, error=str(exc))
+    return DatabaseTestResult(
+      root_connected=False,
+      database_exists=False,
+      database_authenticated=False,
+      message=str(exc)
+    )
 
 
 def initialize_seed_data(db: Session, *, overwrite_existing: bool = False) -> dict:
