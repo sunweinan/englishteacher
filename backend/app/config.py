@@ -19,14 +19,23 @@ def _install_overrides() -> Dict[str, Any]:
 _installed_config = _install_overrides()
 
 
+def _get_env(keys: list[str], default: Any | None = None) -> Any:
+  for key in keys:
+    value = os.getenv(key)
+    if value:
+      return value
+  return default
+
+
 def _default_database_config() -> Dict[str, Any]:
   install_db = _installed_config.get('database', {}) if isinstance(_installed_config, dict) else {}
   return {
-    'user': install_db.get('user') or os.getenv('DB_USER'),
-    'password': install_db.get('password') or os.getenv('DB_PASSWORD'),
-    'host': install_db.get('host', os.getenv('DB_HOST', 'localhost')),
-    'port': int(install_db.get('port') or os.getenv('DB_PORT', 3306)),
-    'name': install_db.get('name') or os.getenv('DB_NAME'),
+    # Prefer installer overrides, then DB_* variables, then MySQL container defaults
+    'user': install_db.get('user') or _get_env(['DB_USER', 'MYSQL_USER'], 'user'),
+    'password': install_db.get('password') or _get_env(['DB_PASSWORD', 'MYSQL_PASSWORD'], 'password'),
+    'host': install_db.get('host') or _get_env(['DB_HOST', 'MYSQL_HOST'], 'db'),
+    'port': int(install_db.get('port') or _get_env(['DB_PORT', 'MYSQL_PORT'], 3306)),
+    'name': install_db.get('name') or _get_env(['DB_NAME', 'MYSQL_DATABASE'], 'englishteacher'),
   }
 
 
@@ -49,6 +58,8 @@ def _build_database_url(config: Dict[str, Any]) -> str:
   host = db_cfg.get('host')
   port = db_cfg.get('port')
   name = db_cfg.get('name')
+  if not all([user, password, host, name]):
+    raise ValueError('Database configuration is incomplete. Please set DATABASE_URL or DB_* environment variables.')
   return f"mysql+pymysql://{user}:{password}@{host}:{port}/{name}"
 
 
