@@ -1,22 +1,12 @@
-"""FastAPI 应用入口，负责初始化中间件、数据库和路由。"""
-
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-
 from app.config import settings
+from app.routes import admin, auth, courses, orders, payments, products
 from app.core.database import init_db
 from app.core.exceptions import add_exception_handlers
-from app.routes import admin, auth, courses, orders, payments, products
 
 
 def create_app() -> FastAPI:
-  """创建并配置 FastAPI 应用实例。
-
-  - 初始化 CORS 中间件，放行前端域名。
-  - 调用数据库初始化逻辑，标记启动状态。
-  - 注册所有业务路由模块。
-  """
-
   app = FastAPI(title='EnglishTeacher Shop')
   app.add_middleware(
     CORSMiddleware,

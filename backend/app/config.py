@@ -1,5 +1,3 @@
-"""应用配置中心，封装环境变量、安装配置与默认值的合并逻辑。"""
-
 import os
 from typing import Any, Dict
 
@@ -9,8 +7,6 @@ from app.core.install_state import load_install_state, load_server_config
 
 
 def _install_overrides() -> Dict[str, Any]:
-  """优先从安装过程写入的配置文件读取配置覆盖值。"""
-
   server_config = load_server_config()
   if isinstance(server_config, dict) and server_config:
     return server_config
@@ -23,8 +19,6 @@ _installed_config = _install_overrides()
 
 
 def _default_database_config() -> Dict[str, Any]:
-  """组合数据库默认配置，优先使用安装文件，其次使用环境变量。"""
-
   install_db = _installed_config.get('database', {}) if isinstance(_installed_config, dict) else {}
   return {
     'user': install_db.get('user') or os.getenv('DB_USER'),
@@ -36,8 +30,6 @@ def _default_database_config() -> Dict[str, Any]:
 
 
 def _default_site_config() -> Dict[str, Any]:
-  """组合站点默认配置（IP、域名、后端端口）。"""
-
   install_site = _installed_config.get('site', {}) if isinstance(_installed_config, dict) else {}
   return {
     'ip': install_site.get('ip', os.getenv('SITE_IP', '127.0.0.1')),
@@ -47,8 +39,6 @@ def _default_site_config() -> Dict[str, Any]:
 
 
 def _build_database_url(config: Dict[str, Any]) -> str:
-  """根据配置拼接数据库连接串，允许直接使用 `DATABASE_URL` 覆盖。"""
-
   if os.getenv('DATABASE_URL'):
     return os.getenv('DATABASE_URL')
 
@@ -62,8 +52,6 @@ def _build_database_url(config: Dict[str, Any]) -> str:
 
 
 def _cors_origins_from_env() -> list[str]:
-  """解析允许的跨域来源列表，未配置时默认为全开放。"""
-
   value = os.getenv('CORS_ORIGINS')
   if not value:
     return ['*']
@@ -71,8 +59,6 @@ def _cors_origins_from_env() -> list[str]:
 
 
 class Settings(BaseModel):
-  """全局配置数据模型，集中管理应用需要的基础参数。"""
-
   database_url: str
   jwt_secret: str = os.getenv('JWT_SECRET', 'supersecret')
   jwt_algorithm: str = 'HS256'
