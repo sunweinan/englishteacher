@@ -119,8 +119,8 @@ const onSubmit = async () => {
   }
   loading.value = true;
   try {
-    await userStore.loginWithCode(normalizedPhone, form.code);
-    ElMessage.success('登录成功');
+    const newlyRegistered = await userStore.loginWithCode(normalizedPhone, form.code);
+    ElMessage.success(newlyRegistered ? '注册成功，已为您登录' : '登录成功');
     const redirect = route.query.redirect as string | undefined;
     router.push(redirect || { name: 'home' });
   } catch (error: any) {

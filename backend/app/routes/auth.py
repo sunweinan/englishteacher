@@ -23,9 +23,14 @@ def send_code(payload: SendCodeRequest):
 
 @router.post('/code-login', response_model=LoginResponse)
 def code_login(payload: PhoneLoginRequest, db: Session = Depends(get_db)):
-  user = auth_service.login_with_phone_code(db, payload.phone, payload.code)
+  user, newly_registered = auth_service.login_with_phone_code(db, payload.phone, payload.code)
   token = auth_service.create_access_token(auth_service.build_token_payload(user))
-  return {'access_token': token, 'token_type': 'bearer', 'user': user}
+  return {
+    'access_token': token,
+    'token_type': 'bearer',
+    'user': user,
+    'newly_registered': newly_registered
+  }
 
 
 @router.post('/admin/login', response_model=Token)
