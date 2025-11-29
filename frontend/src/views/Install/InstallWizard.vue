@@ -92,7 +92,7 @@
           <el-input v-model="form.wechatApiKey" type="password" show-password />
         </el-form-item>
 
-        <el-divider>短信服务</el-divider>
+        <el-divider>信服务</el-divider>
         <el-form-item label="短信服务商">
           <el-input v-model="form.smsProvider" />
         </el-form-item>
