@@ -44,9 +44,19 @@ def install_test_database(payload: MysqlConnectionTestRequest):
   try:
     with engine.connect() as conn:
       conn.execute(text('SELECT 1'))
-    return MysqlConnectionTestResult(success=True, error=None)
+    return MysqlConnectionTestResult(
+      root_connected=True,
+      database_exists=False,
+      database_authenticated=False,
+      message='已完成 root 连接验证，已跳过业务数据库检查。'
+    )
   except Exception as exc:  # noqa: BLE001
-    return MysqlConnectionTestResult(success=False, error=str(exc))
+    return MysqlConnectionTestResult(
+      root_connected=False,
+      database_exists=False,
+      database_authenticated=False,
+      message=str(exc)
+    )
 
 
 @router.post('/run', response_model=InstallResult)
